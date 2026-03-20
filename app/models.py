@@ -10,7 +10,6 @@ class User(SQLModel, table=True):
     username: str = Field(unique=True, index=True)
     password_hash: str 
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
     interactions: List["UserInteraction"] = Relationship(back_populates="user")
 
 
@@ -29,17 +28,12 @@ class MediaItem(SQLModel, table=True):
 
 class UserInteraction(SQLModel, table=True):
     __tablename__ = "user_interactions"
-    
     id: Optional[int] = Field(default=None, primary_key=True)
-    
     user_id: int = Field(foreign_key="users.id")
-    media_item_id: int = Field(foreign_key="media_items.id")
-    
+    media_item_id: int = Field(foreign_key="media_items.id") 
     rating: float = Field(default=0.0)
     status: str = Field(default="completed")
-    review_text: Optional[str] = None #Προαιρετικό
-    
+    review_text: Optional[str] = None #Προαιρετικό 
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
     user: User = Relationship(back_populates="interactions")
     media_item: MediaItem = Relationship(back_populates="interactions")

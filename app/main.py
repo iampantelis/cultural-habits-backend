@@ -55,9 +55,7 @@ async def search_books(query: str, token: str = Depends(oauth2_scheme)):
 
 @app.get("/users/me/interactions")
 def get_my_interactions(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
-    statement = select(UserInteraction, MediaItem).where(
-        UserInteraction.user_id == current_user.id
-    ).join(MediaItem)
+    statement = select(UserInteraction, MediaItem).where(UserInteraction.user_id == current_user.id).join(MediaItem)
     
     results = session.exec(statement).all()
     

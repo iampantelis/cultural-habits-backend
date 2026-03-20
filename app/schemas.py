@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 class UserCreate(BaseModel):
     username: str
@@ -13,8 +14,6 @@ class UserRead(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-from typing import Optional
 
 class LogMedia(BaseModel):
     external_id: str 
