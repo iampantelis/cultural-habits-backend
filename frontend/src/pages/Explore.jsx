@@ -69,35 +69,43 @@ function Explore() {
       </div>
 
       {/* Results Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {results.map((item, index) => (
-          <div key={index} className="border-4 border-black bg-white p-6 shadow-brutal flex flex-col justify-between">
-            <div>
-              <h3 className="text-2xl font-black uppercase mb-2 leading-tight">{item.title}</h3>
-              <span className="inline-block bg-black text-white px-2 py-1 text-xs font-bold uppercase mb-4">
-                {item.media_type}
-              </span>
-            </div>
 
-            <div className="mt-6 border-t-4 border-black pt-4">
-              <p className="font-bold mb-2">RATE THIS:</p>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => handleLogInteraction(item, star)}
-                    className="border-2 border-black w-10 h-10 font-black hover:bg-brutal-secondary transition-colors"
-                  >
-                    {star}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* Results Grid */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+  {results.map((item, index) => (
+    <div key={index} className="border-4 border-black bg-white shadow-brutal flex flex-col overflow-hidden">
+      {/* Προσθήκη Εικόνας */}
+      {item.thumbnail && (
+        <img
+          src={item.thumbnail}
+          alt={item.title}
+          className="w-full h-64 object-cover border-b-4 border-black"
+        />
+      )}
+      <div className="p-6 flex-1 flex flex-col justify-between">
+        <div>
+          <h3 className="text-2xl font-black uppercase mb-2 leading-tight">{item.title}</h3>
+          <span className="inline-block bg-black text-white px-2 py-1 text-xs font-bold uppercase mb-4">
+            {item.type}
+          </span>
+          <p className="text-sm font-medium line-clamp-2 mb-4">{item.description}</p>
+        </div>
+
+        <div className="mt-4 border-t-2 border-black pt-4">
+          <p className="font-bold text-xs mb-2 uppercase tracking-widest">Rate this:</p>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => handleLogInteraction(item, star)}
+                className="border-2 border-black w-8 h-8 font-black text-sm hover:bg-brutal-secondary transition-all active:translate-x-0.5 active:translate-y-0.5"
+              >
+                {star}
+              </button>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
-  );
-}
-
-export default Explore;
+  ))}
+</div>

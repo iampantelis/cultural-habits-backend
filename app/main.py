@@ -43,7 +43,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://localhost:8000",
 ]
 
 app.add_middleware(
@@ -58,15 +58,14 @@ app.add_middleware(
 async def search_movies(query: str, current_user: User = Depends(get_current_user)):
     return await search_tmdb_movies(query)
 
+
 @app.get("/search/music")
 async def search_music(query: str, token: str = Depends(oauth2_scheme)):
-    results = await search_spotify_music(query)
-    return {"results": results}
+    return await search_spotify_music(query)
 
 @app.get("/search/books")
 async def search_books(query: str, token: str = Depends(oauth2_scheme)):
-    results = await search_google_books(query)
-    return {"results": results}
+    return await search_google_books(query)
 
 @app.get("/users/me/interactions")
 def get_my_interactions(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
