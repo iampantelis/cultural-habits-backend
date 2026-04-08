@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; // ΠΡΟΣΘΕΣΕ ΤΟ Link ΕΔΩ
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -9,7 +9,6 @@ function Login() {
 
   const handleLogin = async () => {
     try {
-      // Το FastAPI περιμένει form-data για το login
       const formData = new FormData();
       formData.append('username', username);
       formData.append('password', password);
@@ -17,7 +16,7 @@ function Login() {
       const response = await api.post('/auth/login', formData);
       localStorage.setItem('access_token', response.data.access_token);
       alert('Επιτυχής σύνδεση!');
-      navigate('/'); // Επιστροφή στην αρχική μετά το login
+      navigate('/');
     } catch (error) {
       alert('Λάθος στοιχεία σύνδεσης.');
     }
@@ -51,6 +50,12 @@ function Login() {
             Enter the Vault
           </button>
         </div>
+
+        {/* ΤΟΠΟΘΕΤΗΣΕ ΤΟ ΕΔΩ: Αμέσως μετά το κλείσιμο του div των inputs */}
+        <p className="mt-6 text-center font-bold">
+          Δεν έχεις λογαριασμό; <Link to="/register" className="underline text-brutal-primary">Sign up εδώ</Link>
+        </p>
+
       </div>
     </div>
   );

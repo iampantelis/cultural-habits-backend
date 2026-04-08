@@ -9,7 +9,7 @@ import Register from './pages/Register';
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Έλεγχος αν ο χρήστης είναι συνδεδεμένος κατά το φόρτωμα
+  // Ελέγχουμε αν υπάρχει το token στο localStorage
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     setIsLoggedIn(!!token);
@@ -18,12 +18,13 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     setIsLoggedIn(false);
-    window.location.href = '/login'; // Επαναφορά στο login
+    window.location.href = '/login';
   };
 
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-brutal-bg font-brutal text-black flex flex-col">
+        {/* Navbar */}
         <nav className="border-b-4 border-black bg-white p-4 flex justify-between items-center shadow-brutal sticky top-0 z-50">
           <Link to="/" className="text-3xl font-black uppercase tracking-tighter hover:text-brutal-primary transition-colors">
             Cult/Vault
@@ -33,7 +34,7 @@ function App() {
             <Link to="/explore" className="hover:underline">Explore</Link>
             <Link to="/vault" className="hover:underline">My Vault</Link>
 
-            {/* Δυναμική εναλλαγή Login / Logout */}
+            {/* Δυναμικό κουμπί Login/Logout */}
             {isLoggedIn ? (
               <button
                 onClick={handleLogout}
