@@ -3,7 +3,7 @@ import api from '../api';
 
 function Explore() {
   const [query, setQuery] = useState('');
-  const [mediaType, setMediaType] = useState('movies'); // movies, music, books
+  const [mediaType, setMediaType] = useState('movies');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -11,7 +11,6 @@ function Explore() {
     if (!query) return;
     setLoading(true);
     try {
-      // Καλούμε τα endpoints αναζήτησης του main.py
       const response = await api.get(`/search/${mediaType}?query=${query}`);
       setResults(response.data);
     } catch (error) {
@@ -23,10 +22,16 @@ function Explore() {
 
   const handleLogInteraction = async (item, rating) => {
     try {
-      // Στέλνουμε το interaction στο /interactions/log του Backend
       await api.post('/interactions/log', {
-        ...item,
-        rating: parseFloat(rating)
+        external_id: item.external_id,
+        source: item.source,
+        media_type: item.type,
+        title: item.title,
+        poster_url: item.thumbnail,
+        year: item.year,
+        description: item.description,
+        rating: parseFloat(rating),
+        status: "completed"
       });
       alert(`Προστέθηκε στο Vault: ${item.title} με ${rating} αστέρια!`);
     } catch (error) {
@@ -35,7 +40,7 @@ function Explore() {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-8 max-w-6xl mx-auto text-black">
       <h1 className="text-5xl font-black uppercase mb-8 tracking-tighter">Explore Culture</h1>
 
       {/* Search Section */}
@@ -69,43 +74,52 @@ function Explore() {
       </div>
 
       {/* Results Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {results.map((item, index) => (
+          <div key={index} className="border-4 border-black bg-white shadow-brutal flex flex-col overflow-hidden">
+            {item.thumbnail && (
+              <img
+                src={item.thumbnail}
+                alt={item.title}
+                className="w-full h-64 object-cover border-b-4 border-black"
+              />
+            )}
 
-      {/* Results Grid */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-  {results.map((item, index) => (
-    <div key={index} className="border-4 border-black bg-white shadow-brutal flex flex-col overflow-hidden">
-      {/* Προσθήκη Εικόνας */}
-      {item.thumbnail && (
-        <img
-          src={item.thumbnail}
-          alt={item.title}
-          className="w-full h-64 object-cover border-b-4 border-black"
-        />
-      )}
-      <div className="p-6 flex-1 flex flex-col justify-between">
-        <div>
-          <h3 className="text-2xl font-black uppercase mb-2 leading-tight">{item.title}</h3>
-          <span className="inline-block bg-black text-white px-2 py-1 text-xs font-bold uppercase mb-4">
-            {item.type}
-          </span>
-          <p className="text-sm font-medium line-clamp-2 mb-4">{item.description}</p>
-        </div>
+            <div className="p-6 flex-1 flex flex-col justify-between">
+              <div>
+                <h3 className="text-2xl font-black uppercase mb-2 leading-tight">{item.title}</h3>
+                <span className="inline-block bg-black text-white px-2 py-1 text-xs font-bold uppercase mb-4">
+                  {item.type}
+                </span>
+                <p className="text-sm font-medium line-clamp-2 mb-4">{item.description}</p>
+              </div>
 
-        <div className="mt-4 border-t-2 border-black pt-4">
-          <p className="font-bold text-xs mb-2 uppercase tracking-widest">Rate this:</p>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => handleLogInteraction(item, star)}
-                className="border-2 border-black w-8 h-8 font-black text-sm hover:bg-brutal-secondary transition-all active:translate-x-0.5 active:translate-y-0.5"
-              >
-                {star}
-              </button>
-            ))}
+              <div className="mt-4 border-t-2 border-black pt-4">
+                <p className="font-bold text-xs mb-2 uppercase tracking-widest text-black">Rate (0.5 - 5):</p>
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="range" min="0.5" max="5" step="0.5"
+                    defaultValue="4"
+                    id={`rating-${item.external_id}`}
+                    className="w-full h-4 bg-gray-200 border-2 border-black appearance-none cursor-pointer accent-brutal-primary"
+                  />
+                  <button
+                    onClick={() => {
+                      const val = document.getElementById(`rating-${item.external_id}`).value;
+                      handleLogInteraction(item, val);
+                    }}
+                    className="border-2 border-black bg-brutal-secondary font-black uppercase py-2 text-xs shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all"
+                  >
+                    Submit Rating
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
-  ))}
-</div>
+  );
+}
+
+export default Explore;
