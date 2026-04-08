@@ -9,6 +9,7 @@ from .models import User, MediaItem, UserInteraction
 from .schemas import UserCreate, UserRead, Token, LogMedia
 from .utils import hash_password, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from .services import search_tmdb_movies, search_spotify_music, search_google_books
+from .recommender import generate_cross_media_recommendations, get_smart_recommendations
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -135,3 +136,11 @@ def log_media(log_data: LogMedia, session: Session = Depends(get_session), curre
         
     session.commit()
     return {"message": "Logged successfully", "media": media_item.title, "rating": log_data.rating}
+
+@app.get("/recommendations/me")
+async def get_my_recommendations(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+
+    return await get_smart_recommendations(current_user, session)
