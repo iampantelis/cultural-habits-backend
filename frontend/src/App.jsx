@@ -1,41 +1,30 @@
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import Login from './pages/Login'
+import Explore from './pages/Explore'
+
+const Home = () => <div className="p-8 text-2xl font-bold uppercase">Trending Feed (Coming Soon)</div>;
+
 function App() {
   return (
-    // Το κεντρικό container: Πιάνει όλη την οθόνη, βάζει το brutal-bg φόντο και κεντράρει τα πάντα
-    <div className="min-h-screen bg-brutal-bg font-brutal flex flex-col items-center justify-center p-6 text-black">
+    <BrowserRouter>
+      <div className="min-h-screen bg-brutal-bg font-brutal text-black flex flex-col">
+        <nav className="border-b-4 border-black bg-brutal-secondary p-4 flex justify-between items-center shadow-brutal">
+          <Link to="/" className="text-3xl font-black uppercase tracking-tighter">Cult/Vault</Link>
+          <div className="flex gap-4 font-bold uppercase">
+             <Link to="/login" className="bg-brutal-primary px-4 py-1 text-white border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none">Login</Link>
+          </div>
+        </nav>
 
-      {/* Η Brutalist Κάρτα μας */}
-      <div className="w-full max-w-md border-4 border-black bg-white p-8 shadow-brutal">
-
-        <h1 className="mb-2 text-4xl font-bold uppercase tracking-tight">
-          Cultural Vault
-        </h1>
-        <p className="mb-8 text-lg font-medium">
-          Ανακάλυψε και αποθήκευσε την ψηφιακή πολιτιστική σου ταυτότητα.
-        </p>
-
-        {/* Το Form */}
-        <div className="flex flex-col gap-4">
-          <input
-            type="text"
-            placeholder="USERNAME"
-            className="border-4 border-black p-3 font-bold outline-none focus:bg-yellow-100 transition-colors"
-          />
-          <input
-            type="password"
-            placeholder="PASSWORD"
-            className="border-4 border-black p-3 font-bold outline-none focus:bg-yellow-100 transition-colors"
-          />
-
-          {/* Το Brutalist Κουμπί: Με hover εφέ που "πατιέται" μέσα στη σκιά του */}
-          <button className="mt-4 border-4 border-black bg-brutal-primary px-6 py-4 text-xl font-bold uppercase text-white shadow-brutal transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-brutal-hover active:translate-x-[4px] active:translate-y-[4px] active:shadow-none">
-            Enter the Vault
-          </button>
-        </div>
-
+        <main className="flex-1 text-black">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/explore" element={<Explore />} />
+          </Routes>
+        </main>
       </div>
-
-    </div>
-  )
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

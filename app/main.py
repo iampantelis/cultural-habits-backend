@@ -10,6 +10,7 @@ from .schemas import UserCreate, UserRead, Token, LogMedia
 from .utils import hash_password, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from .services import search_tmdb_movies, search_spotify_music, search_google_books
 from .recommender import generate_cross_media_recommendations, get_smart_recommendations
+from fastapi.middleware.cors import CORSMiddleware
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -39,6 +40,19 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/search/movies")
 async def search_movies(query: str, current_user: User = Depends(get_current_user)):

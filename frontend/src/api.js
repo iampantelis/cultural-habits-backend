@@ -2,7 +2,9 @@ import axios from 'axios';
 
 // Δημιουργούμε ένα κεντρικό "κανάλι" επικοινωνίας με το Backend μας
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000', // Η διεύθυνση του FastAPI σου
+ const api = axios.create({
+  baseURL: 'http://localhost:8000', 
+}); // Η διεύθυνση του FastAPI σου
 });
 
 // Εδώ είναι η μαγεία (Interceptor):
