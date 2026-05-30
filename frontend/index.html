@@ -10,11 +10,21 @@
 
     <nav class="navbar">
         <h1>Cult/Vault</h1>
-        <div class="nav-links">
-            <span id="userStatus" class="hidden">Συνδεδεμένος</span>
-            <button id="logoutBtn" class="hidden">Logout</button>
+
+        <div id="navSearchControls" class="search-controls hidden">
+            <select id="mediaType">
+                <option value="movies">Ταινίες</option>
+                <option value="music">Μουσική</option>
+                <option value="books">Βιβλία</option>
+            </select>
+            <input type="text" id="searchQuery" placeholder="Τι ψάχνεις;">
+            <button id="searchBtn">Αναζήτηση</button>
         </div>
-    </nav>
+
+       <div class="nav-links">
+            <button id="userStatusBtn" class="nav-btn hidden">Profile</button>
+            <button id="logoutBtn" class="logout-btn hidden">Logout</button>
+        </div>
 
     <div class="container">
         <section id="loginSection" class="card">
@@ -29,23 +39,59 @@
         </section>
 
         <section id="exploreSection" class="hidden">
-            <div class="search-box card">
-                <h2>Αναζήτηση</h2>
-                <div class="search-controls">
-                    <select id="mediaType">
-                        <option value="movies">Ταινίες</option>
-                        <option value="music">Μουσική</option>
-                        <option value="books">Βιβλία</option>
-                    </select>
-                    <input type="text" id="searchQuery" placeholder="Τι ψάχνεις;">
-                    <button id="searchBtn">Αναζήτηση</button>
+            <div id="resultsGrid" class="results-grid"></div>
+        </section>
+
+        <section id="detailsSection" class="card hidden">
+            <button id="backBtn" class="btn-secondary">⬅️ Πίσω στα Αποτελέσματα</button>
+
+            <div class="details-layout">
+                <div class="details-poster" id="detailPosterContainer">
+                    </div>
+
+                <div class="details-info">
+                    <h2 id="detailTitle">Τίτλος Έργου</h2>
+                    <p class="detail-meta"><span id="detailType">Τύπος</span> • <span id="detailYear">Έτος</span></p>
+                    <p id="detailDescription" class="detail-description">Εδώ θα εμφανίζεται η αναλυτική περιγραφή, η σύνοψη ή επιπλέον πληροφορίες από το API.</p>
+
+                    <div class="rating-box">
+                        <h3>Η Αξιολόγησή σου</h3>
+
+                        <div class="slider-container">
+                            <label for="ratingSlider">Βαθμολογία: <span id="ratingDisplay">5.0</span> ⭐</label>
+                            <input type="range" id="ratingSlider" min="0.5" max="5.0" step="0.5" value="5.0">
+                        </div>
+
+                        <label for="reviewInput">Κριτική:</label>
+                        <textarea id="reviewInput" placeholder="Γράψε την προσωπική σου κριτική για το εκάστοτε στοιχείο..." rows="4"></textarea>
+
+                        <button id="submitVoteBtn">Αποθήκευση στο Vault σας</button>
+                    </div>
                 </div>
             </div>
 
-            <div id="resultsGrid" class="results-grid"></div>
         </section>
-    </div>
 
+        <div id="profileOverlay" class="profile-overlay hidden">
+            <div class="profile-sidebar">
+                <div class="profile-header-top">
+                    <h2>Το Πολιτιστικό σου Προφίλ 🏛️</h2>
+                    <button id="closeProfileBtn" class="close-btn">❌</button>
+                </div>
+
+                <p style="margin-bottom: 20px;">Δες τι έχεις αποθηκεύσει και ανακάλυψε νέες προτάσεις.</p>
+
+                <div class="sidebar-card">
+                    <h3 style="color: #007bff;">Το Vault μου</h3>
+                    <div id="myVaultGrid" class="sidebar-grid"></div>
+                </div>
+
+                <div class="sidebar-card">
+                    <h3 style="color: #28a745;">Προτάσεις για Σένα 🤖</h3>
+                    <div id="recommendationsGrid" class="sidebar-grid"></div>
+                </div>
+            </div>
+        </div>
     <script src="app.js"></script>
 </body>
 </html>
