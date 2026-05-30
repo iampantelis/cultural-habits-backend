@@ -9,7 +9,7 @@ from .models import User, MediaItem, UserInteraction
 from .schemas import UserCreate, UserRead, Token, LogMedia
 from .utils import hash_password, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from .services import search_tmdb_movies, search_spotify_music, search_google_books
-from .recommender import generate_cross_media_recommendations, get_smart_recommendations
+from .recommender import get_smart_recommendations
 from fastapi.middleware.cors import CORSMiddleware
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -22,7 +22,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Dep
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        username = payload.get("sub")
         if username is None:
             raise credentials_exception
     except JWTError:
@@ -35,7 +35,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Dep
     return user
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     create_db_and_tables()
     yield
 
@@ -45,26 +45,26 @@ origins = [
     "http://localhost:5173",
     "http://localhost:8000",
 ]
-
+# noinspection PyTypeChecker
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/search/movies")
-async def search_movies(query: str, current_user: User = Depends(get_current_user)):
+@app.get("/search/movies", dependencies=[Depends(get_current_user)])
+async def search_movies(query: str):
     return await search_tmdb_movies(query)
 
 
-@app.get("/search/music")
-async def search_music(query: str, token: str = Depends(oauth2_scheme)):
+@app.get("/search/music", dependencies=[Depends(oauth2_scheme)])
+async def search_music(query: str):
     return await search_spotify_music(query)
 
-@app.get("/search/books")
-async def search_books(query: str, token: str = Depends(oauth2_scheme)):
+@app.get("/search/books", dependencies=[Depends(oauth2_scheme)])
+async def search_books(query: str):
     return await search_google_books(query)
 
 @app.get("/users/me/interactions")
@@ -102,7 +102,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = D
     user = session.exec(select(User).where(User.username == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Bad credentials")
-    token = create_access_token(data={"sub": user.username}, expires_delta=timedelta(minutes=30))
+    token = create_access_token(data={"sub": user.username}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     return {"access_token": token, "token_type": "bearer"}
 
 @app.post("/interactions/log")
