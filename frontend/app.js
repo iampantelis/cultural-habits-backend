@@ -2,27 +2,7 @@ const BASE_URL = 'http://127.0.0.1:8000';
 let currentSearchCache = [];
 let activeItem = null;
 
-// --- HELPERS για type label & badge ---
-const TYPE_META = {
-    movie:  { label: 'Ταινία',   icon: '🎬', color: '#e6a817' },
-    music:  { label: 'Μουσική',  icon: '🎵', color: '#1db954' },
-    book:   { label: 'Βιβλίο',   icon: '📖', color: '#4a90d9' },
-};
-
-function getTypeMeta(item) {
-    // Τα items από search/recommender έχουν "type", τα profile items έχουν "media_type"
-    const raw = (item.type || item.media_type || '').toLowerCase();
-    if (raw.includes('movie')) return TYPE_META.movie;
-    if (raw.includes('music') || raw.includes('album') || raw.includes('track')) return TYPE_META.music;
-    if (raw.includes('book')) return TYPE_META.book;
-    // Fallback βάσει source
-    if (item.source === 'tmdb') return TYPE_META.movie;
-    if (item.source === 'spotify') return TYPE_META.music;
-    if (item.source === 'google_books') return TYPE_META.book;
-    return { label: '', icon: '❓', color: '#888' };
-}
-
-// --- 1. ROUTER ---
+// --- 1. ROUTER (Πλοήγηση Σελίδων) ---
 function navigateTo(viewId) {
     document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
 
@@ -36,6 +16,8 @@ function navigateTo(viewId) {
 
     document.getElementById(`view-${viewId}`).classList.remove('hidden');
 
+    // Κλήσεις συναρτήσεων όταν μπαίνουμε στη σελίδα:
+    if (viewId === 'home') loadTrending();
     if (viewId === 'profile') loadProfile();
     if (viewId === 'recommendations') loadRecommendations();
 }
@@ -92,7 +74,10 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
             msgDiv.textContent = "Η εγγραφή πέτυχε! Μεταφορά στη σελίδα σύνδεσης...";
             msgDiv.className = 'success';
             document.getElementById('registerForm').reset();
-            setTimeout(() => { navigateTo('login'); msgDiv.className = 'hidden'; }, 2000);
+            setTimeout(() => {
+                navigateTo('login');
+                msgDiv.className = 'hidden';
+            }, 2000);
         } else {
             const err = await res.json();
             let errorMsg = err.detail || "Αποτυχία εγγραφής.";
@@ -161,8 +146,7 @@ document.getElementById('saveInteractionBtn').addEventListener('click', async ()
         description: activeItem.description || "Χωρίς περιγραφή",
         rating: parseFloat(document.getElementById('ratingSlider').value),
         review: document.getElementById('reviewInput').value || null,
-        status: "completed",
-        genres: activeItem.genres || [],   // ← ΝΕΟ — στέλνουμε τα genres στο backend
+        status: "completed"
     };
 
     try {
@@ -183,12 +167,11 @@ document.getElementById('saveInteractionBtn').addEventListener('click', async ()
             alert("Σφάλμα αποθήκευσης:\n" + JSON.stringify(err.detail || err));
         }
     } catch (e) {
-        console.error("Σφάλμα:", e);
         alert("Δεν μπορέσαμε να συνδεθούμε με τον διακομιστή.");
     }
 });
 
-// --- 5. ΠΡΟΦΙΛ ---
+// --- 5. ΠΡΟΦΙΛ & ΣΤΑΤΙΣΤΙΚΑ ---
 async function loadProfile() {
     const token = localStorage.getItem('token');
 
@@ -210,10 +193,12 @@ async function loadProfile() {
             (i.media_type && i.media_type.toLowerCase().includes('movie')) ||
             (!i.media_type && i.source === 'tmdb')
         );
+
         const music = data.filter(i =>
             (i.media_type && (i.media_type.toLowerCase().includes('music') || i.media_type.toLowerCase().includes('album'))) ||
             (!i.media_type && i.source === 'spotify')
         );
+
         const books = data.filter(i =>
             (i.media_type && i.media_type.toLowerCase().includes('book')) ||
             (!i.media_type && i.source === 'google_books')
@@ -223,38 +208,9 @@ async function loadProfile() {
         document.getElementById('statMusic').innerText = music.length;
         document.getElementById('statBooks').innerText = books.length;
 
-        renderProfileSection(movies, 'profileMoviesGrid', 'profileMoviesBtn');
-        renderProfileSection(music,  'profileMusicGrid',  'profileMusicBtn');
-        renderProfileSection(books,  'profileBooksGrid',  'profileBooksBtn');
-    }
-}
-
-// Εμφανίζει τις τελευταίες 5 και προαιρετικά κουμπί "Δες όλες"
-function renderProfileSection(items, gridId, btnId) {
-    const grid = document.getElementById(gridId);
-    const btn  = document.getElementById(btnId);
-
-    // Οι τελευταίες εγγραφές πρώτα (reverse)
-    const sorted = [...items].reverse();
-    const preview = sorted.slice(0, 5);
-    const hasMore = sorted.length > 5;
-
-    renderGrid(preview, grid, 'profile');
-
-    if (hasMore) {
-        btn.classList.remove('hidden');
-        btn.textContent = `Δες όλες (${sorted.length})`;
-        // Αφαίρεσε παλιό listener πριν βάλεις νέο
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        let expanded = false;
-        newBtn.addEventListener('click', () => {
-            expanded = !expanded;
-            renderGrid(expanded ? sorted : preview, grid, 'profile');
-            newBtn.textContent = expanded ? 'Λιγότερα ▲' : `Δες όλες (${sorted.length})`;
-        });
-    } else {
-        btn.classList.add('hidden');
+        renderGrid(movies, document.getElementById('profileMoviesGrid'), 'profile');
+        renderGrid(music, document.getElementById('profileMusicGrid'), 'profile');
+        renderGrid(books, document.getElementById('profileBooksGrid'), 'profile');
     }
 }
 
@@ -268,53 +224,35 @@ function openLoggedItem(item) {
     document.getElementById('loggedReview').innerText = item.review ? `"${item.review}"` : 'Δεν άφησες κάποια κριτική για αυτό το έργο.';
 }
 
-// --- 6. ΠΡΟΤΑΣΕΙΣ ---
-async function loadRecommendations() {
-    const grid = document.getElementById('recommendationsGrid');
-    grid.innerHTML = '<p class="loading-msg">Αναζητούμε περιεχόμενο που ταιριάζει σε σένα... ⏳</p>';
+// --- 6. TRENDING (ΑΡΧΙΚΗ ΣΕΛΙΔΑ) ---
+async function loadTrending() {
+    const container = document.getElementById('trendingContainer');
+    if (!container) return;
+
+    container.innerHTML = '<p class="loading-msg">Φόρτωση δημοφιλών επιλογών... 🔥</p>';
 
     try {
-        const res = await fetch(`${BASE_URL}/recommendations/me`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-
-        if (!res.ok) {
-            grid.innerHTML = '<p class="error">Σφάλμα κατά τη φόρτωση προτάσεων.</p>';
-            return;
-        }
+        const res = await fetch(`${BASE_URL}/trending`);
+        if (!res.ok) throw new Error('Σφάλμα API');
 
         const data = await res.json();
         const items = data.recommendations || [];
+        container.innerHTML = '';
 
-        grid.innerHTML = '';
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'rec-header';
+        headerDiv.innerHTML = `
+            <h2>🔥 Δημοφιλή αυτή τη στιγμή</h2>
+            <p style="color: var(--text-main);">${data.message || 'Ανακαλύψτε τι συζητάει ο κόσμος.'}</p>
+        `;
+        container.appendChild(headerDiv);
 
-        // Αν υπάρχει μήνυμα (cold start ή based_on), εμφάνισέ το
-        if (data.message) {
-            const msgEl = document.createElement('p');
-            msgEl.className = 'rec-message';
-            msgEl.textContent = data.message;
-            grid.appendChild(msgEl);
-        } else if (data.based_on && data.based_on.length > 0) {
-            const msgEl = document.createElement('p');
-            msgEl.className = 'rec-message';
-            msgEl.textContent = `Βασισμένο στα αγαπημένα σου: ${data.based_on.join(', ')}`;
-            grid.appendChild(msgEl);
-        }
+        if (items.length === 0) return;
 
-        if (items.length === 0) {
-            const empty = document.createElement('p');
-            empty.style.cssText = 'color:#666; font-style:italic; margin-top:10px;';
-            empty.textContent = 'Δεν βρέθηκαν προτάσεις αυτή τη στιγμή.';
-            grid.appendChild(empty);
-            return;
-        }
-
-        // Ομαδοποίηση ανά τύπο για καλύτερη οπτική οργάνωση
+        // Ομαδοποίηση και εμφάνιση σε Carousel
         const grouped = { movie: [], music: [], book: [] };
         items.forEach(item => {
-            const meta = getTypeMeta(item);
-            const key = meta === TYPE_META.movie ? 'movie'
-                      : meta === TYPE_META.music ? 'music' : 'book';
+            const key = item.type === 'movie' ? 'movie' : item.type === 'music' ? 'music' : 'book';
             grouped[key].push(item);
         });
 
@@ -322,42 +260,110 @@ async function loadRecommendations() {
 
         for (const [key, sectionItems] of Object.entries(grouped)) {
             if (sectionItems.length === 0) continue;
+
             const title = document.createElement('h3');
             title.className = 'category-title';
             title.textContent = sectionTitles[key];
-            grid.appendChild(title);
+            container.appendChild(title);
 
-            const sectionGrid = document.createElement('div');
-            sectionGrid.className = 'media-grid';
-            grid.appendChild(sectionGrid);
-            renderGrid(sectionItems, sectionGrid, 'search');
+            const sectionCarousel = document.createElement('div');
+            sectionCarousel.className = 'rec-carousel';
+            container.appendChild(sectionCarousel);
+            renderGrid(sectionItems, sectionCarousel, 'search');
         }
-
     } catch (err) {
-        console.error(err);
-        grid.innerHTML = '<p class="error">Πρόβλημα σύνδεσης με τον διακομιστή.</p>';
+        container.innerHTML = '';
     }
 }
 
-// --- 7. RENDER GRID (κοινή) ---
+// --- 7. ΠΡΟΤΑΣΕΙΣ (RECOMMENDATIONS) ---
+async function loadRecommendations() {
+    const container = document.getElementById('recommendationsContainer');
+    container.innerHTML = '<p class="loading-msg">Αναλύουμε το γούστο σου... ⏳</p>';
+
+    try {
+        const res = await fetch(`${BASE_URL}/recommendations/me`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+
+        if (!res.ok) {
+            container.innerHTML = '<p class="error">Σφάλμα κατά τη φόρτωση προτάσεων.</p>';
+            return;
+        }
+
+        const data = await res.json();
+        const items = data.recommendations || [];
+        container.innerHTML = '';
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'rec-header';
+        const h2 = document.createElement('h2');
+        h2.textContent = 'Επιλεγμένα για εσένα';
+        headerDiv.appendChild(h2);
+
+        if (data.message) {
+            const p = document.createElement('p');
+            p.textContent = data.message;
+            p.style.color = 'var(--text-main)';
+            headerDiv.appendChild(p);
+        } else if (data.based_on && data.based_on.length > 0) {
+            const basedOnDiv = document.createElement('div');
+            basedOnDiv.className = 'rec-based-on';
+            basedOnDiv.innerHTML = `<span class="tag-label">ΕΠΕΙΔΗ ΣΟΥ ΑΡΕΣΑΝ:</span>` +
+                data.based_on.map(t => `<span class="rec-tag">${t}</span>`).join('');
+            headerDiv.appendChild(basedOnDiv);
+        }
+        container.appendChild(headerDiv);
+
+        if (items.length === 0) {
+            container.innerHTML += '<p style="color:#666; font-style:italic;">Δεν βρέθηκαν προτάσεις.</p>';
+            return;
+        }
+
+        // Ομαδοποίηση και εμφάνιση σε Carousel
+        const grouped = { movie: [], music: [], book: [] };
+        items.forEach(item => {
+            const key = item.type === 'movie' ? 'movie' : item.type === 'music' ? 'music' : 'book';
+            grouped[key].push(item);
+        });
+
+        const sectionTitles = { movie: '🎬 Ταινίες', music: '🎵 Μουσική', book: '📖 Βιβλία' };
+
+        for (const [key, sectionItems] of Object.entries(grouped)) {
+            if (sectionItems.length === 0) continue;
+
+            const title = document.createElement('h3');
+            title.className = 'category-title';
+            title.textContent = sectionTitles[key];
+            container.appendChild(title);
+
+            const sectionCarousel = document.createElement('div');
+            sectionCarousel.className = 'rec-carousel';
+            container.appendChild(sectionCarousel);
+            renderGrid(sectionItems, sectionCarousel, 'search');
+        }
+
+    } catch (err) {
+        container.innerHTML = '<p class="error">Πρόβλημα σύνδεσης.</p>';
+    }
+}
+
+// --- 8. ΒΟΗΘΗΤΙΚΗ ΣΥΝΑΡΤΗΣΗ RENDER (Κατασκευή Καρτών) ---
 function renderGrid(items, container, mode) {
     container.innerHTML = '';
-    if (!items || items.length === 0) {
-        container.innerHTML = '<p style="color:#666; font-style:italic;">Δεν υπάρχουν εγγραφές ακόμα.</p>';
+    if (items.length === 0) {
+        container.innerHTML = '<p style="color:#666; font-style:italic;">Δεν υπάρχουν εγγραφές.</p>';
         return;
     }
     items.forEach(item => {
-        const meta = getTypeMeta(item);
         const card = document.createElement('div');
         card.className = 'media-card';
         const imgUrl = item.thumbnail || item.poster || '';
-        const ratingHtml = item.rating
-            ? `<p style="color:var(--accent); font-weight:bold; font-size:0.85rem;">${item.rating}/5</p>`
-            : '';
+
+        let ratingHtml = item.rating ? `<p style="color:var(--accent); font-weight:bold;">${item.rating}/5</p>` : '';
 
         card.innerHTML = `
-            <div class="media-type-badge" style="background:${meta.color}">${meta.icon} ${meta.label}</div>
-            <img src="${imgUrl}" alt="Poster" onerror="this.style.display='none'">
+            <img src="${imgUrl}" alt="Poster">
             <div class="media-card-info">
                 <h3>${item.title}</h3>
                 ${ratingHtml}
@@ -365,7 +371,10 @@ function renderGrid(items, container, mode) {
         `;
 
         if (mode === 'search') {
-            card.onclick = () => openDetails(item.external_id);
+            card.onclick = () => {
+                currentSearchCache = items; // Βεβαιωνόμαστε ότι το cache έχει το σωστό αντικείμενο
+                openDetails(item.external_id);
+            };
         } else if (mode === 'profile') {
             card.onclick = () => openLoggedItem(item);
         }

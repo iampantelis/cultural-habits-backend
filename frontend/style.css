@@ -145,3 +145,60 @@ nav {
 
 /* Loading/error msgs */
 .loading-msg { color: #9ab; font-style: italic; }
+
+.rec-header {
+    background: linear-gradient(135deg, #1a2127 0%, #2c3440 100%);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border-left: 5px solid var(--accent);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.rec-header h2 {
+    font-size: 2rem;
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
+.rec-based-on {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 15px;
+    align-items: center;
+}
+
+.rec-based-on span.tag-label {
+    color: var(--text-main);
+    font-size: 0.95rem;
+    text-transform: uppercase;
+}
+
+.rec-tag {
+    background: #14181c;
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border: 1px solid #444;
+}
+
+/* Οριζόντιο Scroll (Carousel) για τις προτάσεις */
+.rec-carousel {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) #14181c;
+}
+.rec-carousel::-webkit-scrollbar { height: 8px; }
+.rec-carousel::-webkit-scrollbar-track { background: #14181c; border-radius: 10px; }
+.rec-carousel::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+
+.rec-carousel .media-card {
+    min-width: 180px;
+    flex: 0 0 auto;
+}

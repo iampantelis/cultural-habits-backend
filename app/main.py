@@ -12,6 +12,7 @@ from .services import search_tmdb_movies, search_spotify_music, search_google_bo
 from .recommender import get_smart_recommendations
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
+from app.recommender import get_smart_recommendations, generate_trending_recommendations
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -189,3 +190,7 @@ async def get_my_recommendations(
 ):
 
     return await get_smart_recommendations(current_user, session)
+
+@app.get("/trending")
+async def get_trending_home():
+    return await generate_trending_recommendations()

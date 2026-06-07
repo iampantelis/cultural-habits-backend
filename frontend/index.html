@@ -34,7 +34,7 @@
                 <h2>Καλώς ήρθες στο Cultural Habbits</h2>
                 <form id="loginForm">
                     <input type="text" id="loginUsername" placeholder="Username" required>
-                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" required>
                     <button type="submit" class="btn-primary">Είσοδος</button>
                 </form>
                 <p class="auth-switch">Δεν έχεις λογαριασμό; <a href="#" onclick="navigateTo('register')">Εγγραφή εδώ</a></p>
@@ -61,6 +61,8 @@
                 <h2>Κατάγραψε. Αξιολόγησε. Ανακάλυψε.</h2>
                 <p>Χρησιμοποίησε την μπάρα αναζήτησης παραπάνω και βρες την επόμενη αγαπημένη σου ταινία, βιβλίο ή άλμπουμ.</p>
             </div>
+
+            <div id="trendingContainer" style="margin-top: 40px;"></div>
         </section>
 
         <section id="view-search" class="view hidden">
@@ -88,28 +90,25 @@
             </div>
         </section>
 
-      <section id="view-profile" class="view hidden">
-    <div class="profile-header-stats">
-        <h2 id="profileUsername">MY HABBITS</h2>
-        <div class="stats-badges">
-            <span class="badge">ΤΑΙΝΙΕΣ: <span id="statMovies">0</span></span>
-            <span class="badge">ΜΟΥΣΙΚΗ: <span id="statMusic">0</span></span>
-            <span class="badge">ΒΙΒΛΙΑ: <span id="statBooks">0</span></span>
-        </div>
-    </div>
+        <section id="view-profile" class="view hidden">
+            <div class="profile-header-stats">
+                <h2 id="profileUsername">MY HABBITS</h2>
+                <div class="stats-badges">
+                    <span class="badge">ΤΑΙΝΙΕΣ: <span id="statMovies">0</span></span>
+                    <span class="badge">ΜΟΥΣΙΚΗ: <span id="statMusic">0</span></span>
+                    <span class="badge">ΒΙΒΛΙΑ: <span id="statBooks">0</span></span>
+                </div>
+            </div>
 
-    <h3 class="category-title">Ταινίες</h3>
-    <div id="profileMoviesGrid" class="media-grid"></div>
-    <button id="profileMoviesBtn" class="btn-show-all hidden"></button>
+            <h3 class="category-title">Ταινίες</h3>
+            <div id="profileMoviesGrid" class="media-grid"></div>
 
-    <h3 class="category-title">Μουσική</h3>
-    <div id="profileMusicGrid" class="media-grid"></div>
-    <button id="profileMusicBtn" class="btn-show-all hidden"></button>
+            <h3 class="category-title">Μουσική</h3>
+            <div id="profileMusicGrid" class="media-grid"></div>
 
-    <h3 class="category-title">Βιβλία</h3>
-    <div id="profileBooksGrid" class="media-grid"></div>
-    <button id="profileBooksBtn" class="btn-show-all hidden"></button>
-</section>
+            <h3 class="category-title">Βιβλία</h3>
+            <div id="profileBooksGrid" class="media-grid"></div>
+        </section>
 
         <section id="view-logged-item" class="view hidden">
             <button onclick="navigateTo('profile')" class="btn-back">Επιστροφή στο Προφίλ</button>
@@ -128,8 +127,7 @@
         </section>
 
         <section id="view-recommendations" class="view hidden">
-            <h2>Προτάσεις για εσένα</h2>
-            <div id="recommendationsGrid" class="media-grid"></div>
+            <div id="recommendationsContainer"></div>
         </section>
     </main>
     <script src="app.js"></script>

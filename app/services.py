@@ -3,76 +3,14 @@ import base64
 import os
 import asyncio
 from dotenv import load_dotenv
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
-# TMDB
+load_dotenv()
+
+# --- TMDB (ΤΑΙΝΙΕΣ) ---
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
-
-# Χάρτης TMDB genre_id -> όνομα
-TMDB_GENRE_MAP = {
-    28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy",
-    80: "Crime", 99: "Documentary", 18: "Drama", 10751: "Family",
-    14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music",
-    9648: "Mystery", 10749: "Romance", 878: "Science Fiction",
-    53: "Thriller", 10752: "War", 37: "Western",
-}
-
-# Χάρτης TMDB genre -> Google Books subject query
-TMDB_TO_BOOKS_GENRE = {
-    "Science Fiction": "subject:science fiction",
-    "Fantasy":         "subject:fantasy",
-    "Thriller":        "subject:thriller",
-    "Horror":          "subject:horror",
-    "Romance":         "subject:romance",
-    "Crime":           "subject:crime fiction",
-    "Mystery":         "subject:mystery",
-    "Adventure":       "subject:adventure",
-    "Drama":           "subject:drama",
-    "History":         "subject:history",
-    "Documentary":     "subject:nonfiction",
-    "Animation":       "subject:animation",
-    "Comedy":          "subject:humor",
-    "War":             "subject:war",
-    "Western":         "subject:western",
-}
-
-# Χάρτης TMDB genre -> Spotify search query
-TMDB_TO_MUSIC_GENRE = {
-    "Science Fiction": "epic sci-fi soundtrack",
-    "Fantasy":         "epic fantasy soundtrack",
-    "Thriller":        "dark thriller soundtrack",
-    "Horror":          "dark horror ambient",
-    "Romance":         "romantic cinematic",
-    "Crime":           "dark jazz noir",
-    "Mystery":         "mystery suspense soundtrack",
-    "Adventure":       "epic adventure orchestral",
-    "Drama":           "emotional cinematic piano",
-    "History":         "epic historical orchestral",
-    "Animation":       "animated film soundtrack",
-    "Comedy":          "upbeat fun pop",
-    "War":             "epic war orchestral",
-    "Western":         "western country soundtrack",
-    "Action":          "action epic orchestral",
-    "Music":           "popular music hits",
-}
-
-# Χάρτης Google Books genre -> TMDB search
-BOOKS_TO_TMDB_GENRE = {
-    "Fiction / Science Fiction": "Science Fiction",
-    "Science Fiction":           "Science Fiction",
-    "Fantasy":                   "Fantasy",
-    "Thriller":                  "Thriller",
-    "Mystery":                   "Mystery",
-    "Horror":                    "Horror",
-    "Romance":                   "Romance",
-    "Crime":                     "Crime",
-    "Adventure":                 "Adventure",
-    "History":                   "History",
-    "Humor":                     "Comedy",
-    "Drama":                     "Drama",
-}
 
 
 async def search_tmdb_movies(query: str) -> List[Dict[str, Any]]:
@@ -88,11 +26,9 @@ async def search_tmdb_movies(query: str) -> List[Dict[str, Any]]:
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, params=params)
+            response.raise_for_status()
         except httpx.HTTPError:
             return []
-
-    if response.status_code != 200:
-        return []
 
     data = response.json()
     clean_results = []
@@ -103,26 +39,94 @@ async def search_tmdb_movies(query: str) -> List[Dict[str, Any]]:
         tmdb_rating = item.get("vote_average", 0)
         normalized_rating = round(tmdb_rating / 2, 1)
 
-        # Μετατρέπουμε genre_ids σε ονόματα
-        genre_ids = item.get("genre_ids", [])
-        genres = [TMDB_GENRE_MAP[gid] for gid in genre_ids if gid in TMDB_GENRE_MAP]
-
         clean_results.append({
             "external_id": str(item.get("id")),
             "title": item.get("title"),
             "description": item.get("overview", "Δεν υπάρχει περιγραφή."),
-            "year": item.get("release_date", "")[:4],
+            "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
             "rating": normalized_rating,
             "thumbnail": image_url,
             "source": "tmdb",
-            "type": "movie",
-            "genres": genres,  # ← ΝΕΟ
+            "type": "movie"
         })
 
     return clean_results
 
 
-# SPOTIFY
+async def get_similar_tmdb_movies(tmdb_id: str) -> List[Dict[str, Any]]:
+    """Φέρνει παρόμοιες ταινίες χρησιμοποιώντας το Recommendation API του TMDB"""
+    url = f"{TMDB_BASE_URL}/movie/{tmdb_id}/recommendations"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": "el-GR",
+        "page": 1
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return []
+
+    data = response.json()
+    clean_results = []
+
+    for item in data.get("results", []):
+        poster_path = item.get("poster_path")
+        image_url = f"{IMAGE_BASE_URL}{poster_path}" if poster_path else None
+
+        clean_results.append({
+            "external_id": str(item.get("id")),
+            "title": item.get("title"),
+            "description": item.get("overview", "Δεν υπάρχει περιγραφή."),
+            "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
+            "rating": round(item.get("vote_average", 0) / 2, 1),
+            "thumbnail": image_url,
+            "source": "tmdb",
+            "type": "movie"
+        })
+
+    return clean_results
+
+
+async def get_trending_tmdb_movies() -> List[Dict[str, Any]]:
+    """Φέρνει τις πραγματικά δημοφιλείς ταινίες της εβδομάδας από το επίσημο API του TMDB"""
+    url = f"{TMDB_BASE_URL}/trending/movie/week"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": "el-GR"
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return []
+
+    data = response.json()
+    clean_results = []
+
+    # Παίρνουμε τις 15 πιο δημοφιλείς ταινίες της εβδομάδας
+    for item in data.get("results", [])[:15]:
+        poster_path = item.get("poster_path")
+        image_url = f"{IMAGE_BASE_URL}{poster_path}" if poster_path else None
+
+        clean_results.append({
+            "external_id": str(item.get("id")),
+            "title": item.get("title"),
+            "description": item.get("overview", "Δεν υπάρχει περιγραφή."),
+            "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
+            "rating": round(item.get("vote_average", 0) / 2, 1),
+            "thumbnail": image_url,
+            "source": "tmdb",
+            "type": "movie"
+        })
+
+    return clean_results
+
+# --- SPOTIFY (ΜΟΥΣΙΚΗ) ---
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -133,12 +137,17 @@ async def get_spotify_token():
     async with httpx.AsyncClient() as client:
         auth_str = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
         b64_auth = base64.b64encode(auth_str.encode()).decode()
+
         headers = {"Authorization": f"Basic {b64_auth}"}
         data = {"grant_type": "client_credentials"}
-        response = await client.post(SPOTIFY_TOKEN_URL, headers=headers, data=data)
-        if response.status_code != 200:
+
+        try:
+            response = await client.post(SPOTIFY_TOKEN_URL, headers=headers, data=data)
+            response.raise_for_status()
+            return response.json().get("access_token")
+        except Exception as e:
+            print("Σφάλμα σύνδεσης στο Spotify:", e)
             return None
-        return response.json().get("access_token")
 
 
 async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
@@ -150,10 +159,11 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
     params = {"q": query, "type": "track", "limit": 5}
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(SPOTIFY_SEARCH_URL, headers=headers, params=params)
-
-    if response.status_code != 200:
-        return []
+        try:
+            response = await client.get(SPOTIFY_SEARCH_URL, headers=headers, params=params)
+            response.raise_for_status()
+        except Exception:
+            return []
 
     items = response.json().get("tracks", {}).get("items", [])
     clean_results = []
@@ -162,6 +172,7 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
         images = item.get("album", {}).get("images", [])
         image_url = images[0]["url"] if images else None
         artists = ", ".join([artist["name"] for artist in item.get("artists", [])])
+
         popularity = item.get("popularity", 0)
         normalized_rating = round(popularity / 20, 1)
 
@@ -169,18 +180,18 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
             "external_id": item.get("id"),
             "title": item.get("name"),
             "description": f"Artist: {artists} | Album: {item.get('album', {}).get('name')}",
-            "year": item.get("album", {}).get("release_date", "")[:4],
+            "year": item.get("album", {}).get("release_date", "")[:4] if item.get("album", {}).get(
+                "release_date") else "",
             "rating": normalized_rating,
             "thumbnail": image_url,
             "source": "spotify",
-            "type": "music",
-            "genres": [],  # Spotify δεν δίνει genres ανά track
+            "type": "music"
         })
 
     return clean_results
 
 
-# GOOGLE BOOKS
+# --- GOOGLE BOOKS (ΒΙΒΛΙΑ) ---
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
 GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
@@ -189,10 +200,18 @@ BOOKS_CACHE = {}
 
 
 async def search_google_books(query: str) -> List[Dict[str, Any]]:
+    """Αναζήτηση βιβλίων στο Google Books με ΔΡΑΣΤΙΚΟ ΦΙΛΤΡΑΡΙΣΜΑ (Μόνο Λογοτεχνία/Σχετικά)"""
+
     if query in BOOKS_CACHE:
         return BOOKS_CACHE[query]
 
-    params = {"q": query, "maxResults": 5, "printType": "books"}
+    params = {
+        "q": query,
+        "maxResults": 15,
+        "printType": "books",
+        "orderBy": "relevance"
+    }
+
     if GOOGLE_BOOKS_API_KEY:
         params["key"] = GOOGLE_BOOKS_API_KEY
 
@@ -201,43 +220,58 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(GOOGLE_BOOKS_URL, params=params)
-                if response.status_code == 429:
-                    return []
+                if response.status_code == 429: return []
                 response.raise_for_status()
             except httpx.HTTPError:
                 return []
 
-    data = response.json()
-    if "items" not in data:
-        return []
+        data = response.json()
+        if "items" not in data:
+            return []
 
-    clean_results = []
-    for item in data.get("items", []):
-        info = item.get("volumeInfo", {})
-        image_links = info.get("imageLinks", {})
-        thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
-        authors = ", ".join(info.get("authors", ["Άγνωστος"]))
-        avg_rating = info.get("averageRating", 0)
+        clean_results = []
+        for item in data.get("items", []):
+            info = item.get("volumeInfo", {})
 
-        # Google Books επιστρέφει categories π.χ. ["Fiction / Science Fiction"]
-        raw_categories = info.get("categories", [])
-        genres = []
-        for cat in raw_categories:
-            # Κανονικοποίηση: "Fiction / Science Fiction" -> "Science Fiction"
-            normalized = cat.split(" / ")[-1].strip()
-            genres.append(normalized)
+            # --- THE FIREWALL (ΔΡΑΣΤΙΚΟ ΦΙΛΤΡΟ) ---
+            categories = [c.lower() for c in info.get("categories", [])]
+            cat_str = " ".join(categories)
 
-        clean_results.append({
-            "external_id": item.get("id"),
-            "title": info.get("title", "Χωρίς τίτλο"),
-            "description": f"Author: {authors}",
-            "year": info.get("publishedDate", "")[:4],
-            "rating": avg_rating,
-            "thumbnail": thumbnail,
-            "source": "google_books",
-            "type": "book",
-            "genres": genres,  # ← ΝΕΟ
-        })
+            # Απαγορευμένες λέξεις
+            bad_words = ["mathematics", "science", "computers", "technology", "education", "business", "medical", "law",
+                         "study"]
+            if any(bad in cat_str for bad in bad_words):
+                continue
 
-    BOOKS_CACHE[query] = clean_results
-    return clean_results
+                # Λέξεις κλειδιά
+            good_words = ["fiction", "literature", "fantasy", "novel", "mystery", "thriller", "biography", "music",
+                          "history", "comic"]
+            is_good = any(good in cat_str for good in good_words)
+
+            # Αξιολογήσεις
+            has_ratings = info.get("ratingsCount", 0) > 0
+
+            if not is_good and not has_ratings and "subject:" not in query:
+                continue
+                # --------------------------------------
+
+            image_links = info.get("imageLinks", {})
+            thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
+            authors = ", ".join(info.get("authors", ["Άγνωστος"]))
+
+            clean_results.append({
+                "external_id": item.get("id"),
+                "title": info.get("title", "Χωρίς τίτλο"),
+                "description": f"Author: {authors}",
+                "year": info.get("publishedDate", "")[:4] if info.get("publishedDate") else "",
+                "rating": info.get("averageRating", 0),
+                "thumbnail": thumbnail,
+                "source": "google_books",
+                "type": "book"
+            })
+
+            if len(clean_results) >= 5:
+                break
+
+        BOOKS_CACHE[query] = clean_results
+        return clean_results
