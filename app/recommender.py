@@ -6,54 +6,55 @@ from .services import search_tmdb_movies, search_spotify_music, search_google_bo
 
 
 async def generate_cross_media_recommendations(current_user: User, session: Session):
-    """
-    Αναλύει το ιστορικό του χρήστη και επιστρέφει διασταυρούμενες συστάσεις
-    (π.χ. Βιβλία για αγαπημένες ταινίες, Soundtrack για ταινίες, κλπ.)
-    """
-    # 1. Βρίσκουμε τις 3 καλύτερες αξιολογήσεις του χρήστη (Βαθμολογία >= 4.0)
+    # 1. Βρίσκουμε τις κορυφαίες αξιολογήσεις (rating >= 4.0), παίρνουμε τις 15 καλύτερες
     statement = select(MediaItem).join(UserInteraction).where(
         (UserInteraction.user_id == current_user.id) &
         (UserInteraction.rating >= 4.0)
-    ).order_by(UserInteraction.rating.desc()).limit(3)
+    ).order_by(UserInteraction.rating.desc()).limit(15)
 
-    favorite_items = session.exec(statement).all()
+    top_items = session.exec(statement).all()
 
-    if not favorite_items:
-        return {
-            "message": "Δεν έχετε αρκετές υψηλές βαθμολογίες. Δοκιμάστε να βαθμολογήσετε μερικά έργα με 4 ή 5 αστέρια!",
-            "recommendations": []
-        }
+    if not top_items:
+        return await generate_trending_recommendations()  # Fallback αν διαγράφηκαν αξιολογήσεις
 
-    recommendations = []
+    # Επιλέγουμε 3 τυχαία από τα καλύτερα για να υπάρχει ποικιλία σε κάθε refresh!
+    favorite_items = random.sample(top_items, min(3, len(top_items)))
+
     tasks = []
-
-    # 2. Φτιάχνουμε τα ασύγχρονα αιτήματα (Tasks) για κάθε αγαπημένο έργο
     for item in favorite_items:
         query = item.title
 
+        # Προσθέτουμε λίγο 'context' στα queries για καλύτερα αποτελέσματα
         if item.media_type == "movie":
-            # Αν του άρεσε ταινία -> Ψάχνουμε Βιβλίο και Soundtrack
+            tasks.append(search_tmdb_movies(query))
             tasks.append(search_google_books(query))
-            tasks.append(search_spotify_music(f"{query} soundtrack"))
+            tasks.append(search_spotify_music(f"{query} soundtrack OR {query} ost"))
 
         elif item.media_type == "book":
-            # Αν του άρεσε βιβλίο -> Ψάχνουμε Ταινία ή Μουσική εμπνευσμένη από αυτό
             tasks.append(search_tmdb_movies(query))
+            tasks.append(search_google_books(f"{query} novel"))
+            tasks.append(search_spotify_music(f"{query} audiobook OR {query} epic"))
 
         elif item.media_type == "music":
-            # Αν του άρεσε μουσική/soundtrack -> Ψάχνουμε Ταινία
             tasks.append(search_tmdb_movies(query))
+            tasks.append(search_spotify_music(query))
+            tasks.append(search_google_books(f"{query} biography OR {query} music"))
 
-    # 3. Εκτελούμε όλα τα tasks ΤΑΥΤΟΧΡΟΝΑ για μέγιστη ταχύτητα
+    recommendations = []
     if tasks:
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, Exception) or not res:
+                continue
+            recommendations.extend(res)
 
-        # Το results είναι μια λίστα από λίστες. Τις ενώνουμε σε μία.
-        for res_list in results:
-            recommendations.extend(res_list)
+    # 2. Αφαίρεση ήδη αποθηκευμένων έργων του χρήστη (εξαιρετική δική σου προσθήκη!)
+    user_items_stmt = select(MediaItem).join(UserInteraction).where(
+        UserInteraction.user_id == current_user.id
+    )
+    user_items = session.exec(user_items_stmt).all()
 
-    # 4. Αφαίρεση διπλοτύπων βάσει του external_id και φιλτράρισμα
-    seen_ids = set()
+    seen_ids = {item.external_id for item in user_items}
     unique_recommendations = []
 
     for rec in recommendations:
@@ -61,37 +62,36 @@ async def generate_cross_media_recommendations(current_user: User, session: Sess
             seen_ids.add(rec["external_id"])
             unique_recommendations.append(rec)
 
+    # 3. Αν για κάποιο λόγο τα unique είναι άδεια (π.χ. τα έχει δει όλα), πάμε στα Trending
+    if not unique_recommendations:
+        return await generate_trending_recommendations()
+
+    # 4. Ανακατεύουμε για να μην βλέπει μόνο ταινίες στις πρώτες θέσεις
+    random.shuffle(unique_recommendations)
+
     return {
         "based_on": [item.title for item in favorite_items],
-        "recommendations": unique_recommendations[:10]  # Επιστρέφουμε τα top 10 καλύτερα
+        "recommendations": unique_recommendations[:12]
     }
 
 
 async def generate_trending_recommendations():
-    """
-    Cold Start: Φέρνει δημοφιλή αποτελέσματα για νέους χρήστες ανακυκλώνοντας
-    τις υπάρχουσες συναρτήσεις αναζήτησης με "έξυπνα" keywords.
-    """
-    # Λίστες με δημοφιλή keywords για να υπάρχει ποικιλία σε κάθε ανανέωση
     movie_queries = ["Inception", "Dune", "Interstellar", "The Dark Knight", "Avengers", "Matrix"]
     music_queries = ["Top 50", "Global Hits", "Viral Pop", "Rock Classics", "Epic Soundtracks"]
     book_queries = ["subject:fiction", "Harry Potter", "1984", "Lord of the Rings", "Dune"]
 
-    # Διαλέγουμε ένα τυχαίο keyword από κάθε κατηγορία
-    movie_task = search_tmdb_movies(random.choice(movie_queries))
-    music_task = search_spotify_music(random.choice(music_queries))
-    book_task = search_google_books(random.choice(book_queries))
-
-    # Τρέχουμε τα tasks παράλληλα
-    results = await asyncio.gather(movie_task, music_task, book_task)
+    results = await asyncio.gather(
+        search_tmdb_movies(random.choice(movie_queries)),
+        search_spotify_music(random.choice(music_queries)),
+        search_google_books(random.choice(book_queries)),
+        return_exceptions=True  # Προσθήκη ασφάλειας και εδώ!
+    )
 
     trending_items = []
-    # Παίρνουμε τα 3 κορυφαία από κάθε κατηγορία
-    if results[0]: trending_items.extend(results[0][:3])  # Ταινίες
-    if results[1]: trending_items.extend(results[1][:3])  # Μουσική
-    if results[2]: trending_items.extend(results[2][:3])  # Βιβλία
+    if not isinstance(results[0], Exception) and results[0]: trending_items.extend(results[0][:4])
+    if not isinstance(results[1], Exception) and results[1]: trending_items.extend(results[1][:4])
+    if not isinstance(results[2], Exception) and results[2]: trending_items.extend(results[2][:4])
 
-    # Ανακατεύουμε τη λίστα για να φαίνεται σαν ένα φυσικό, οργανικό "Feed"
     random.shuffle(trending_items)
 
     return {
@@ -102,10 +102,6 @@ async def generate_trending_recommendations():
 
 
 async def get_smart_recommendations(current_user: User, session: Session):
-    """
-    Ελέγχει το ιστορικό του χρήστη και αποφασίζει ποιον αλγόριθμο θα τρέξει (Router)
-    """
-    # Ελέγχουμε αν ο χρήστης έχει τουλάχιστον 1 βαθμολογία >= 4.0
     statement = select(UserInteraction).where(
         (UserInteraction.user_id == current_user.id) &
         (UserInteraction.rating >= 4.0)
@@ -114,8 +110,6 @@ async def get_smart_recommendations(current_user: User, session: Session):
     has_history = session.exec(statement).first()
 
     if has_history:
-        # Αν έχει ιστορικό, του δίνουμε προσωποποιημένες συστάσεις (Cross-Media)!
         return await generate_cross_media_recommendations(current_user, session)
     else:
-        # Αν είναι νέος (Cold Start), του δίνουμε τα Trending!
         return await generate_trending_recommendations()

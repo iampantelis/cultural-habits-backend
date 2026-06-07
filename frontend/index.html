@@ -89,24 +89,27 @@
         </section>
 
       <section id="view-profile" class="view hidden">
-            <div class="profile-header-stats">
-                <h2 id="profileUsername">MY HABBITS</h2>
-                <div class="stats-badges">
-                    <span class="badge">ΤΑΙΝΙΕΣ: <span id="statMovies">0</span></span>
-                    <span class="badge">ΜΟΥΣΙΚΗ: <span id="statMusic">0</span></span>
-                    <span class="badge">ΒΙΒΛΙΑ: <span id="statBooks">0</span></span>
-                </div>
-            </div>
+    <div class="profile-header-stats">
+        <h2 id="profileUsername">MY HABBITS</h2>
+        <div class="stats-badges">
+            <span class="badge">ΤΑΙΝΙΕΣ: <span id="statMovies">0</span></span>
+            <span class="badge">ΜΟΥΣΙΚΗ: <span id="statMusic">0</span></span>
+            <span class="badge">ΒΙΒΛΙΑ: <span id="statBooks">0</span></span>
+        </div>
+    </div>
 
-            <h3 class="category-title">Ταινίες</h3>
-            <div id="profileMoviesGrid" class="media-grid"></div>
+    <h3 class="category-title">Ταινίες</h3>
+    <div id="profileMoviesGrid" class="media-grid"></div>
+    <button id="profileMoviesBtn" class="btn-show-all hidden"></button>
 
-            <h3 class="category-title">Μουσική</h3>
-            <div id="profileMusicGrid" class="media-grid"></div>
+    <h3 class="category-title">Μουσική</h3>
+    <div id="profileMusicGrid" class="media-grid"></div>
+    <button id="profileMusicBtn" class="btn-show-all hidden"></button>
 
-            <h3 class="category-title">Βιβλία</h3>
-            <div id="profileBooksGrid" class="media-grid"></div>
-        </section>
+    <h3 class="category-title">Βιβλία</h3>
+    <div id="profileBooksGrid" class="media-grid"></div>
+    <button id="profileBooksBtn" class="btn-show-all hidden"></button>
+</section>
 
         <section id="view-logged-item" class="view hidden">
             <button onclick="navigateTo('profile')" class="btn-back">Επιστροφή στο Προφίλ</button>

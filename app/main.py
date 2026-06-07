@@ -11,6 +11,7 @@ from .utils import hash_password, verify_password, create_access_token, ACCESS_T
 from .services import search_tmdb_movies, search_spotify_music, search_google_books
 from .recommender import get_smart_recommendations
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional, List
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -120,31 +121,43 @@ def register_user(user_data: UserCreate, session: Session = Depends(get_session)
     session.refresh(new_user)
     return new_user
 
+
 @app.post("/interactions/log")
 def log_media(log_data: LogMedia, session: Session = Depends(get_session),
               current_user: User = Depends(get_current_user)):
-    # Αλλάζουμε το φίλτρο: Ψάχνουμε βάσει external_id ΚΑΙ source
     statement = select(MediaItem).where(
         (MediaItem.external_id == log_data.external_id) &
-        (MediaItem.source == log_data.source)  # Εδώ χρησιμοποιούμε το source που στέλνεις
+        (MediaItem.source == log_data.source)
     )
     media_item = session.exec(statement).first()
 
     if not media_item:
-        # Αν δεν υπάρχει, το δημιουργούμε με τα σωστά δεδομένα
+        # Αποθηκεύουμε genres αν τα έστειλε το frontend (από το services.py)
         media_item = MediaItem(
             external_id=log_data.external_id,
-            source=log_data.source,  # Σωστή αποθήκευση του source
+            source=log_data.source,
             media_type=log_data.media_type,
             title=log_data.title,
             cover_image_url=log_data.poster_url,
-            meta_data={"year": log_data.year, "description": log_data.description}
+            meta_data={
+                "year": log_data.year,
+                "description": log_data.description,
+                "genres": log_data.genres or [],  # ← ΝΕΟ
+            }
         )
         session.add(media_item)
         session.commit()
         session.refresh(media_item)
+    else:
+        # Αν το item υπάρχει ήδη, ενημέρωσε genres αν λείπουν
+        if media_item.meta_data and not media_item.meta_data.get("genres"):
+            media_item.meta_data = {
+                **media_item.meta_data,
+                "genres": log_data.genres or [],
+            }
+            session.add(media_item)
+            session.commit()
 
-    # Συνέχεια με την καταγραφή της αλληλεπίδρασης...
     interaction_stmt = select(UserInteraction).where(
         (UserInteraction.user_id == current_user.id) &
         (UserInteraction.media_item_id == media_item.id)

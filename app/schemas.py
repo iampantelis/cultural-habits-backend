@@ -1,22 +1,26 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
+
 
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
 
+
 class UserRead(BaseModel):
     id: int
     username: str
     email: EmailStr
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class LogMedia(BaseModel):
-    external_id: str 
+    external_id: str
     title: str
     year: str
     source: str
@@ -25,4 +29,5 @@ class LogMedia(BaseModel):
     description: Optional[str] = None
     rating: float
     review: Optional[str] = None
-    status: str 
+    status: str
+    genres: Optional[List[str]] = []

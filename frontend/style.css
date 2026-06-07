@@ -91,3 +91,57 @@ nav {
 .badge span { color: var(--accent); font-size: 1.1rem; margin-left: 5px; }
 
 .category-title { margin-top: 40px; margin-bottom: 15px; border-bottom: 2px solid #444; padding-bottom: 5px; color: var(--text-light); font-size: 1.5rem; }
+
+/* ============================================
+   PATCH — προσθήκες στο υπάρχον style.css
+   ============================================ */
+
+/* Type badge πάνω στις κάρτες */
+.media-card { position: relative; }
+
+.media-type-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    z-index: 2;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+/* Μήνυμα "Βασισμένο στα αγαπημένα σου" στις προτάσεις */
+.rec-message {
+    color: #9ab;
+    font-style: italic;
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: #1e2730;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+}
+
+/* "Δες όλες" κουμπί κάτω από κάθε κατηγορία προφίλ */
+.btn-show-all {
+    display: block;
+    margin: 12px auto 0;
+    background: transparent;
+    border: 1px solid #444;
+    color: var(--text-main);
+    padding: 7px 22px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: border-color 0.2s, color 0.2s;
+}
+.btn-show-all:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Loading/error msgs */
+.loading-msg { color: #9ab; font-style: italic; }
