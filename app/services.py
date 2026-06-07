@@ -109,55 +109,77 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
         
     return clean_results
 
-#BOOKS
+##BOOKS#BOOKS
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
+GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
+
+# 1. Ορισμός του Semaphore (για σειρά στα αιτήματα) - ΠΡΕΠΕΙ να είναι εδώ έξω!
+books_semaphore = asyncio.Semaphore(1)
+
+# 2. Ορισμός του Cache (για να θυμάται παλιές αναζητήσεις)
+BOOKS_CACHE = {}
+
 async def search_google_books(query: str) -> List[Dict[str, Any]]:
-    """Αναζήτηση βιβλίων στο Google Books"""
-    # Προσθήκη παραμέτρων για καλύτερα αποτελέσματα
+    """Αναζήτηση βιβλίων στο Google Books με API Key, Caching και Rate Limiting"""
+
+    # Έλεγχος στο cache
+    if query in BOOKS_CACHE:
+        print(f"DEBUG: Το '{query}' βρέθηκε στο Cache. Παρακάμπτεται η κλήση API.")
+        return BOOKS_CACHE[query]
+
     params = {
         "q": query,
         "maxResults": 5,
         "printType": "books"
     }
 
-    await asyncio.sleep(1)
+    # Προσθήκη του API Key αν υπάρχει στο .env
+    if GOOGLE_BOOKS_API_KEY:
+        params["key"] = GOOGLE_BOOKS_API_KEY
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(GOOGLE_BOOKS_URL, params=params)
-            if response.status_code == 429:
-                print("ΠΡΟΣΟΧΗ: Έφτασες το όριο κλήσεων του Google Books API!")
+    # Χρήση του semaphore που ορίσαμε ακριβώς από πάνω
+    async with books_semaphore:
+        # Μικρή παύση 0.5 δευτερολέπτων για ασφάλεια
+        await asyncio.sleep(0.5)
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(GOOGLE_BOOKS_URL, params=params)
+
+                # Αν παρόλα αυτά φάμε 429, δεν κρασάρει το app, απλά επιστρέφει άδεια λίστα
+                if response.status_code == 429:
+                    print(f"ΠΡΟΣΟΧΗ: Το Google Books API επέστρεψε 429 (Rate Limit) για το query: {query}")
+                    return []
+
+                response.raise_for_status()
+            except httpx.HTTPError as e:
+                print(f"Σφάλμα κατά την κλήση στο Google Books: {e}")
                 return []
-            response.raise_for_status()
-        except httpx.HTTPError as e:
-            print(f"Σφάλμα κατά την κλήση στο Google Books: {e}")
+
+        data = response.json()
+        if "items" not in data:
             return []
 
-    data = response.json()
-    if "items" not in data:
-        return []
+        clean_results = []
+        for item in data.get("items", []):
+            info = item.get("volumeInfo", {})
+            image_links = info.get("imageLinks", {})
+            thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
+            authors = ", ".join(info.get("authors", ["Άγνωστος"]))
+            avg_rating = info.get("averageRating", 0)
 
-    clean_results = []
-    data = response.json()
-    print(f"DEBUG: Βρέθηκαν {data.get('totalItems', 0)} αποτελέσματα για το query: {query}")  # <-- Πρόσθεσε αυτό
-    if "items" not in data:
-        return []
-    for item in data.get("items", []):
-        info = item.get("volumeInfo", {})
-        image_links = info.get("imageLinks", {})
-        thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
-        authors = ", ".join(info.get("authors", ["Άγνωστος"]))
-        avg_rating = info.get("averageRating", 0)
+            clean_results.append({
+                "external_id": item.get("id"),
+                "title": info.get("title", "Χωρίς τίτλο"),
+                "description": f"Author: {authors}",
+                "year": info.get("publishedDate", "")[:4],
+                "rating": avg_rating,
+                "thumbnail": thumbnail,
+                "source": "google_books",
+                "type": "book"
+            })
 
-        clean_results.append({
-            "external_id": item.get("id"),
-            "title": info.get("title", "Χωρίς τίτλο"),
-            "description": f"Author: {authors}",
-            "year": info.get("publishedDate", "")[:4],
-            "rating": avg_rating,
-            "thumbnail": thumbnail,
-            "source": "google_books",
-            "type": "book"
-        })
+        # Αποθηκεύουμε τα αποτελέσματα στο cache για επόμενη χρήση
+        BOOKS_CACHE[query] = clean_results
 
-    return clean_results
+        return clean_results
