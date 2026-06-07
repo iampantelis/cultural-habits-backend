@@ -2,68 +2,133 @@
 <html lang="el">
 <head>
     <meta charset="UTF-8">
-    <title>Cult/Vault</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cultural Habbits</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <h1>Cult/Vault</h1>
-        <div id="navSearchControls" class="search-controls hidden">
-            <select id="mediaType">
+    <nav id="navbar" class="hidden">
+        <div class="nav-brand" onclick="navigateTo('home')">Cultural Habbits</div>
+
+        <form id="searchForm" class="search-bar">
+            <select id="searchType">
                 <option value="movies">Ταινίες</option>
                 <option value="music">Μουσική</option>
                 <option value="books">Βιβλία</option>
             </select>
-            <input type="text" id="searchQuery" placeholder="Τι ψάχνεις;">
-            <button id="searchBtn">Αναζήτηση</button>
-        </div>
+            <input type="text" id="searchInput" placeholder="Αναζήτηση..." required>
+            <button type="submit">🔍</button>
+        </form>
+
         <div class="nav-links">
-            <button id="userStatusBtn" class="nav-btn hidden">👤 Το Προφίλ μου</button>
-            <button id="logoutBtn" class="logout-btn hidden">Logout</button>
+            <button onclick="navigateTo('home')">Αρχική</button>
+            <button onclick="navigateTo('recommendations')">Προτάσεις</button>
+            <button onclick="navigateTo('profile')">Προφίλ</button>
+            <button id="logoutBtn">Logout</button>
         </div>
     </nav>
 
-    <div class="container">
-        <section id="loginSection" class="card">
-            <h2>Login</h2>
-            <form id="loginForm">
-               <input type="text" name="username" id="username" placeholder="Username" required>
-                <input type="password" name="password" id="password" placeholder="Password" required>
-                <button type="submit">Είσοδος</button>
-            </form>
-            <p id="loginError" class="error hidden">Λάθος στοιχεία.</p>
+    <main class="container">
+        <section id="view-login" class="view">
+            <div class="auth-card">
+                <h2>Καλώς ήρθες στο Cultural Habbits</h2>
+                <form id="loginForm">
+                    <input type="text" id="loginUsername" placeholder="Username" required>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <button type="submit" class="btn-primary">Είσοδος</button>
+                </form>
+                <p class="auth-switch">Δεν έχεις λογαριασμό; <a href="#" onclick="navigateTo('register')">Εγγραφή εδώ</a></p>
+                <div id="loginError" class="error hidden">Λάθος στοιχεία.</div>
+            </div>
         </section>
 
-        <section id="exploreSection" class="hidden">
-            <div id="resultsGrid" class="results-grid"></div>
+        <section id="view-register" class="view hidden">
+            <div class="auth-card">
+                <h2>Δημιουργία Λογαριασμού</h2>
+                <form id="registerForm">
+                    <input type="text" id="regUsername" placeholder="Username" required>
+                    <input type="email" id="regEmail" placeholder="Email" required>
+                    <input type="password" id="regPassword" placeholder="Password" required>
+                    <button type="submit" class="btn-primary">Εγγραφή</button>
+                </form>
+                <p class="auth-switch">Έχεις ήδη λογαριασμό; <a href="#" onclick="navigateTo('login')">Είσοδος</a></p>
+                <div id="registerMessage" class="hidden"></div>
+            </div>
         </section>
 
-        <section id="detailsSection" class="card hidden">
-            <button id="backBtn" class="btn-secondary">⬅️ Πίσω</button>
+        <section id="view-home" class="view hidden">
+            <div class="welcome-banner">
+                <h2>Κατάγραψε. Αξιολόγησε. Ανακάλυψε.</h2>
+                <p>Χρησιμοποίησε την μπάρα αναζήτησης παραπάνω και βρες την επόμενη αγαπημένη σου ταινία, βιβλίο ή άλμπουμ.</p>
+            </div>
+        </section>
+
+        <section id="view-search" class="view hidden">
+            <h2>Αποτελέσματα Αναζήτησης</h2>
+            <div id="searchResultsGrid" class="media-grid"></div>
+        </section>
+
+        <section id="view-details" class="view hidden">
+            <button onclick="navigateTo('search')" class="btn-back">⬅ Επιστροφή</button>
             <div class="details-layout">
-                <div class="details-poster" id="detailPosterContainer"></div>
+                <div id="detailPoster"></div>
                 <div class="details-info">
                     <h2 id="detailTitle"></h2>
-                    <p id="detailType"></p>
-                    <p id="detailDescription"></p>
-                    <div class="rating-box">
-                        <label>Βαθμολογία: <span id="ratingDisplay">5.0</span> ⭐</label>
+                    <p class="meta" id="detailMeta"></p>
+                    <p id="detailDesc"></p>
+
+                    <div class="rating-panel">
+                        <h3>Αξιολόγησε</h3>
+                        <label>Βαθμολογία: <span id="ratingDisplay">5.0</span></label>
                         <input type="range" id="ratingSlider" min="0.5" max="5.0" step="0.5" value="5.0">
-                        <textarea id="reviewInput" placeholder="Κριτική..." rows="4"></textarea>
-                        <button id="submitVoteBtn">Αποθήκευση στο Vault</button>
+                        <textarea id="reviewInput" placeholder="Γράψε τις σκέψεις σου..." rows="3"></textarea>
+                        <button id="saveInteractionBtn" class="btn-primary">Αποθήκευση</button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <div id="profileOverlay" class="profile-overlay hidden">
-            <div class="profile-sidebar">
-                <div class="profile-header-top"><h2>Το Vault σου 🏛️</h2><button id="closeProfileBtn" class="close-btn">❌</button></div>
-                <div class="sidebar-card"><h3>Αξιολογήσεις</h3><div id="myVaultGrid" class="sidebar-grid"></div></div>
-                <div class="sidebar-card"><h3>Προτάσεις AI</h3><div id="recommendationsGrid" class="sidebar-grid"></div></div>
+      <section id="view-profile" class="view hidden">
+            <div class="profile-header-stats">
+                <h2 id="profileUsername">MY HABBITS</h2>
+                <div class="stats-badges">
+                    <span class="badge">ΤΑΙΝΙΕΣ: <span id="statMovies">0</span></span>
+                    <span class="badge">ΜΟΥΣΙΚΗ: <span id="statMusic">0</span></span>
+                    <span class="badge">ΒΙΒΛΙΑ: <span id="statBooks">0</span></span>
+                </div>
             </div>
-        </div>
-    </div>
+
+            <h3 class="category-title">Ταινίες</h3>
+            <div id="profileMoviesGrid" class="media-grid"></div>
+
+            <h3 class="category-title">Μουσική</h3>
+            <div id="profileMusicGrid" class="media-grid"></div>
+
+            <h3 class="category-title">Βιβλία</h3>
+            <div id="profileBooksGrid" class="media-grid"></div>
+        </section>
+
+        <section id="view-logged-item" class="view hidden">
+            <button onclick="navigateTo('profile')" class="btn-back">Επιστροφή στο Προφίλ</button>
+            <div class="details-layout">
+                <div id="loggedPoster"></div>
+                <div class="details-info">
+                    <h2 id="loggedTitle"></h2>
+                    <p class="meta" id="loggedMeta"></p>
+                    <div class="rating-panel">
+                        <h3>Η Αξιολόγησή σου</h3>
+                        <label>Βαθμολογία: <span id="loggedRating" style="color: var(--accent); font-weight: bold; font-size: 1.2rem;"></span> / 5</label>
+                        <div id="loggedReview" style="margin-top: 15px; padding: 15px; background: #14181c; border-left: 3px solid var(--accent); font-style: italic; color: #fff;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-recommendations" class="view hidden">
+            <h2>Προτάσεις για εσένα</h2>
+            <div id="recommendationsGrid" class="media-grid"></div>
+        </section>
+    </main>
     <script src="app.js"></script>
 </body>
 </html>
