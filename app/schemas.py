@@ -19,6 +19,7 @@ class LogMedia(BaseModel):
     external_id: str 
     title: str
     year: str
+    source: str
     media_type: str
     poster_url: Optional[str] = None
     description: Optional[str] = None

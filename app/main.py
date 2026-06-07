@@ -67,12 +67,13 @@ async def search_music(query: str):
 async def search_books(query: str):
     return await search_google_books(query)
 
+
 @app.get("/users/me/interactions")
 def get_my_interactions(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     statement = select(UserInteraction, MediaItem).where(UserInteraction.user_id == current_user.id).join(MediaItem)
-    
+
     results = session.exec(statement).all()
-    
+
     my_list = []
     for interaction, media in results:
         my_list.append({
@@ -80,11 +81,33 @@ def get_my_interactions(session: Session = Depends(get_session), current_user: U
             "rating": interaction.rating,
             "status": interaction.status,
             "review": interaction.review_text,
-            "poster": media.cover_image_url
+            "poster": media.cover_image_url,
+            "media_type": media.media_type  # <--- ΠΡΟΣΘΕΣΕ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ
         })
-        
+
     return my_list
 
+
+@app.post("/auth/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    # 1. Αναζήτηση χρήστη στη βάση
+    statement = select(User).where(User.username == form_data.username)
+    user = session.exec(statement).first()
+
+    # 2. Έλεγχος αν υπάρχει ο χρήστης και αν ο κωδικός είναι σωστός
+    if not user or not verify_password(form_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bad credentials"
+        )
+
+    # 3. Δημιουργία token
+    token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+
+    return {"access_token": token, "token_type": "bearer"}
 
 @app.post("/auth/register", response_model=UserRead)
 def register_user(user_data: UserCreate, session: Session = Depends(get_session)):
@@ -97,26 +120,21 @@ def register_user(user_data: UserCreate, session: Session = Depends(get_session)
     session.refresh(new_user)
     return new_user
 
-@app.post("/auth/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
-    user = session.exec(select(User).where(User.username == form_data.username)).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Bad credentials")
-    token = create_access_token(data={"sub": user.username}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    return {"access_token": token, "token_type": "bearer"}
-
 @app.post("/interactions/log")
-def log_media(log_data: LogMedia, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)): 
+def log_media(log_data: LogMedia, session: Session = Depends(get_session),
+              current_user: User = Depends(get_current_user)):
+    # Αλλάζουμε το φίλτρο: Ψάχνουμε βάσει external_id ΚΑΙ source
     statement = select(MediaItem).where(
-        (MediaItem.external_id == log_data.external_id) & 
-        (MediaItem.source == "tmdb")
+        (MediaItem.external_id == log_data.external_id) &
+        (MediaItem.source == log_data.source)  # Εδώ χρησιμοποιούμε το source που στέλνεις
     )
     media_item = session.exec(statement).first()
-    
+
     if not media_item:
+        # Αν δεν υπάρχει, το δημιουργούμε με τα σωστά δεδομένα
         media_item = MediaItem(
             external_id=log_data.external_id,
-            source="tmdb",
+            source=log_data.source,  # Σωστή αποθήκευση του source
             media_type=log_data.media_type,
             title=log_data.title,
             cover_image_url=log_data.poster_url,
@@ -125,13 +143,14 @@ def log_media(log_data: LogMedia, session: Session = Depends(get_session), curre
         session.add(media_item)
         session.commit()
         session.refresh(media_item)
-        
+
+    # Συνέχεια με την καταγραφή της αλληλεπίδρασης...
     interaction_stmt = select(UserInteraction).where(
         (UserInteraction.user_id == current_user.id) &
         (UserInteraction.media_item_id == media_item.id)
     )
     existing_interaction = session.exec(interaction_stmt).first()
-    
+
     if existing_interaction:
         existing_interaction.rating = log_data.rating
         existing_interaction.status = log_data.status
@@ -146,9 +165,9 @@ def log_media(log_data: LogMedia, session: Session = Depends(get_session), curre
             review_text=log_data.review
         )
         session.add(new_interaction)
-        
+
     session.commit()
-    return {"message": "Logged successfully", "media": media_item.title, "rating": log_data.rating}
+    return {"message": "Logged successfully", "media": media_item.title}
 
 @app.get("/recommendations/me")
 async def get_my_recommendations(

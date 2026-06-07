@@ -1,6 +1,7 @@
 import httpx
 import base64
 import os
+import asyncio
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 
@@ -110,34 +111,53 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
 
 #BOOKS
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
-
 async def search_google_books(query: str) -> List[Dict[str, Any]]:
     """Αναζήτηση βιβλίων στο Google Books"""
-    params = {"q": query, "maxResults": 5}
-    
+    # Προσθήκη παραμέτρων για καλύτερα αποτελέσματα
+    params = {
+        "q": query,
+        "maxResults": 5,
+        "printType": "books"
+    }
+
+    await asyncio.sleep(1)
+
     async with httpx.AsyncClient() as client:
-        response = await client.get(GOOGLE_BOOKS_URL, params=params)
-        
-    if response.status_code != 200:
+        try:
+            response = await client.get(GOOGLE_BOOKS_URL, params=params)
+            if response.status_code == 429:
+                print("ΠΡΟΣΟΧΗ: Έφτασες το όριο κλήσεων του Google Books API!")
+                return []
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            print(f"Σφάλμα κατά την κλήση στο Google Books: {e}")
+            return []
+
+    data = response.json()
+    if "items" not in data:
         return []
-    
+
     clean_results = []
-    for item in response.json().get("items", []):
+    data = response.json()
+    print(f"DEBUG: Βρέθηκαν {data.get('totalItems', 0)} αποτελέσματα για το query: {query}")  # <-- Πρόσθεσε αυτό
+    if "items" not in data:
+        return []
+    for item in data.get("items", []):
         info = item.get("volumeInfo", {})
         image_links = info.get("imageLinks", {})
         thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
-        authors = ", ".join(info.get("authors", ["Unknown"]))
+        authors = ", ".join(info.get("authors", ["Άγνωστος"]))
         avg_rating = info.get("averageRating", 0)
-        
+
         clean_results.append({
             "external_id": item.get("id"),
-            "title": info.get("title"),
+            "title": info.get("title", "Χωρίς τίτλο"),
             "description": f"Author: {authors}",
             "year": info.get("publishedDate", "")[:4],
-            "rating": avg_rating, 
+            "rating": avg_rating,
             "thumbnail": thumbnail,
             "source": "google_books",
             "type": "book"
         })
-        
+
     return clean_results
