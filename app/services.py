@@ -192,6 +192,7 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
 
 
 # --- GOOGLE BOOKS (ΒΙΒΛΙΑ) ---
+# --- GOOGLE BOOKS (ΒΙΒΛΙΑ) ---
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
 GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
@@ -200,18 +201,15 @@ BOOKS_CACHE = {}
 
 
 async def search_google_books(query: str) -> List[Dict[str, Any]]:
-    """Αναζήτηση βιβλίων στο Google Books με ΔΡΑΣΤΙΚΟ ΦΙΛΤΡΑΡΙΣΜΑ (Μόνο Λογοτεχνία/Σχετικά)"""
-
     if query in BOOKS_CACHE:
         return BOOKS_CACHE[query]
 
     params = {
         "q": query,
-        "maxResults": 15,
+        "maxResults": 20,  # Ζητάμε 20 για να έχουμε περιθώριο να "κόψουμε" τα άσχετα
         "printType": "books",
-        "orderBy": "relevance"
+        "langRestrict": "en"  # Προαιρετικά, βοηθάει να φέρνει πιο γνωστά εξώφυλλα
     }
-
     if GOOGLE_BOOKS_API_KEY:
         params["key"] = GOOGLE_BOOKS_API_KEY
 
@@ -226,37 +224,27 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
                 return []
 
         data = response.json()
-        if "items" not in data:
-            return []
-
         clean_results = []
+
+        # Λέξεις που "φωνάζουν" ότι το βιβλίο είναι εγχειρίδιο/άσχετο
+        bad_words = ["mathematics", "science", "computers", "technology", "education", "business", "medical", "law",
+                     "study", "textbook", "manual"]
+
         for item in data.get("items", []):
             info = item.get("volumeInfo", {})
-
-            # --- THE FIREWALL (ΔΡΑΣΤΙΚΟ ΦΙΛΤΡΟ) ---
             categories = [c.lower() for c in info.get("categories", [])]
             cat_str = " ".join(categories)
 
-            # Απαγορευμένες λέξεις
-            bad_words = ["mathematics", "science", "computers", "technology", "education", "business", "medical", "law",
-                         "study"]
+            # 1. ΑΥΣΤΗΡΟ ΦΙΛΤΡΟ: Αν έχει άσχετη κατηγορία, το πετάμε!
             if any(bad in cat_str for bad in bad_words):
                 continue
 
-                # Λέξεις κλειδιά
-            good_words = ["fiction", "literature", "fantasy", "novel", "mystery", "thriller", "biography", "music",
-                          "history", "comic"]
-            is_good = any(good in cat_str for good in good_words)
-
-            # Αξιολογήσεις
-            has_ratings = info.get("ratingsCount", 0) > 0
-
-            if not is_good and not has_ratings and "subject:" not in query:
-                continue
-                # --------------------------------------
-
+            # 2. ΦΙΛΤΡΟ ΠΟΙΟΤΗΤΑΣ: Αν δεν έχει εξώφυλλο, το πετάμε (για να είναι ωραίο το UI)
             image_links = info.get("imageLinks", {})
             thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
+            if not thumbnail:
+                continue
+
             authors = ", ".join(info.get("authors", ["Άγνωστος"]))
 
             clean_results.append({
@@ -265,12 +253,13 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
                 "description": f"Author: {authors}",
                 "year": info.get("publishedDate", "")[:4] if info.get("publishedDate") else "",
                 "rating": info.get("averageRating", 0),
-                "thumbnail": thumbnail,
+                "thumbnail": thumbnail.replace("http:", "https:"),  # Ασφάλεια για το frontend
                 "source": "google_books",
                 "type": "book"
             })
 
-            if len(clean_results) >= 5:
+            # Σταματάμε όταν μαζέψουμε 10 ΚΑΛΑ βιβλία από αυτό το συγκεκριμένο query
+            if len(clean_results) >= 10:
                 break
 
         BOOKS_CACHE[query] = clean_results

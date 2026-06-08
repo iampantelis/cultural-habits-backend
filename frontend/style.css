@@ -92,9 +92,6 @@ nav {
 
 .category-title { margin-top: 40px; margin-bottom: 15px; border-bottom: 2px solid #444; padding-bottom: 5px; color: var(--text-light); font-size: 1.5rem; }
 
-/* ============================================
-   PATCH — προσθήκες στο υπάρχον style.css
-   ============================================ */
 
 /* Type badge πάνω στις κάρτες */
 .media-card { position: relative; }
@@ -185,20 +182,58 @@ nav {
     border: 1px solid #444;
 }
 
-/* Οριζόντιο Scroll (Carousel) για τις προτάσεις */
+/* --- Οριζόντιο Carousel για Προτάσεις και Trending --- */
 .rec-carousel {
     display: flex;
     gap: 20px;
-    overflow-x: auto;
-    padding-bottom: 20px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent) #14181c;
+    overflow-x: auto; /* Ενεργοποιεί το οριζόντιο scroll */
+    padding: 20px 5px;
+    scroll-snap-type: x mandatory; /* Ομαλό "κούμπωμα" σαν κινητό */
+    -webkit-overflow-scrolling: touch;
 }
-.rec-carousel::-webkit-scrollbar { height: 8px; }
-.rec-carousel::-webkit-scrollbar-track { background: #14181c; border-radius: 10px; }
-.rec-carousel::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
 
+/* Στυλιζάρισμα της μπάρας κύλισης για να είναι όμορφη */
+.rec-carousel::-webkit-scrollbar {
+    height: 8px;
+}
+.rec-carousel::-webkit-scrollbar-track {
+    background: #14181c;
+    border-radius: 10px;
+}
+.rec-carousel::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 10px;
+}
+
+/* Κάρτες μέσα στο Carousel */
 .rec-carousel .media-card {
-    min-width: 180px;
-    flex: 0 0 auto;
+    min-width: 160px; /* Σταθερό πλάτος για να χωράνε πολλές */
+    max-width: 160px;
+    flex: 0 0 auto; /* Δεν τις αφήνει να μικρύνουν */
+    scroll-snap-align: start; /* Κουμπώνει την κάθε κάρτα στην αρχή */
+}
+
+.rec-carousel .media-card img {
+    height: 240px;
+    object-fit: cover;
+}
+
+.btn-view-all {
+    background: transparent;
+    color: var(--text-light);
+    border: 1px solid var(--accent);
+    padding: 8px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: block;
+    margin: 15px auto 40px auto;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: 0.3s ease;
+}
+
+.btn-view-all:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-2px);
 }

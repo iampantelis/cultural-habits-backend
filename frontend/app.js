@@ -1,6 +1,8 @@
 const BASE_URL = 'http://127.0.0.1:8000';
 let currentSearchCache = [];
 let activeItem = null;
+let profileData = { movies: [], music: [], books: [] }; // <--- ΠΡΟΣΘΗΚΗ
+let profileExpanded = { movies: false, music: false, books: false };
 
 // --- 1. ROUTER (Πλοήγηση Σελίδων) ---
 function navigateTo(viewId) {
@@ -172,14 +174,15 @@ document.getElementById('saveInteractionBtn').addEventListener('click', async ()
 });
 
 // --- 5. ΠΡΟΦΙΛ & ΣΤΑΤΙΣΤΙΚΑ ---
+// --- 5. ΠΡΟΦΙΛ & ΣΤΑΤΙΣΤΙΚΑ ---
 async function loadProfile() {
     const token = localStorage.getItem('token');
 
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        document.getElementById('profileUsername').innerText = payload.sub || 'Το Προφίλ μου';
+        document.getElementById('profileUsername').innerText = payload.sub ? payload.sub.toUpperCase() : 'MY PROFILE';
     } catch (e) {
-        document.getElementById('profileUsername').innerText = 'Το Προφίλ μου';
+        document.getElementById('profileUsername').innerText = 'MY PROFILE';
     }
 
     const res = await fetch(`${BASE_URL}/users/me/interactions`, {
@@ -187,31 +190,69 @@ async function loadProfile() {
     });
 
     if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
 
-        const movies = data.filter(i =>
+        // Αντιστροφή για να βλέπουμε πρώτα τις ΠΙΟ ΠΡΟΣΦΑΤΕΣ εγγραφές!
+        data.reverse();
+
+        profileData.movies = data.filter(i =>
             (i.media_type && i.media_type.toLowerCase().includes('movie')) ||
             (!i.media_type && i.source === 'tmdb')
         );
 
-        const music = data.filter(i =>
+        profileData.music = data.filter(i =>
             (i.media_type && (i.media_type.toLowerCase().includes('music') || i.media_type.toLowerCase().includes('album'))) ||
             (!i.media_type && i.source === 'spotify')
         );
 
-        const books = data.filter(i =>
+        profileData.books = data.filter(i =>
             (i.media_type && i.media_type.toLowerCase().includes('book')) ||
             (!i.media_type && i.source === 'google_books')
         );
 
-        document.getElementById('statMovies').innerText = movies.length;
-        document.getElementById('statMusic').innerText = music.length;
-        document.getElementById('statBooks').innerText = books.length;
+        document.getElementById('statMovies').innerText = profileData.movies.length;
+        document.getElementById('statMusic').innerText = profileData.music.length;
+        document.getElementById('statBooks').innerText = profileData.books.length;
 
-        renderGrid(movies, document.getElementById('profileMoviesGrid'), 'profile');
-        renderGrid(music, document.getElementById('profileMusicGrid'), 'profile');
-        renderGrid(books, document.getElementById('profileBooksGrid'), 'profile');
+        // Κλείνουμε όλες τις κατηγορίες (να δείχνουν μόνο 5) σε κάθε φόρτωση
+        profileExpanded = { movies: false, music: false, books: false };
+
+        updateProfileCategory('movies');
+        updateProfileCategory('music');
+        updateProfileCategory('books');
     }
+}
+
+function updateProfileCategory(cat) {
+    const gridMap = { movies: 'profileMoviesGrid', music: 'profileMusicGrid', books: 'profileBooksGrid' };
+    const grid = document.getElementById(gridMap[cat]);
+    const btn = document.getElementById(`btn-viewall-${cat}`);
+    const items = profileData[cat];
+
+    if (items.length === 0) {
+        grid.innerHTML = '<p style="color:#666; font-style:italic;">Δεν υπάρχουν εγγραφές.</p>';
+        btn.classList.add('hidden');
+        return;
+    }
+
+    const isExpanded = profileExpanded[cat];
+    // Αν είναι expanded δείχνουμε όλα (items), αλλιώς κόβουμε τα πρώτα 5
+    const itemsToRender = isExpanded ? items : items.slice(0, 5);
+
+    renderGrid(itemsToRender, grid, 'profile');
+
+    // Αν έχει πάνω από 5 εγγραφές, εμφανίζουμε το κουμπάκι!
+    if (items.length > 5) {
+        btn.classList.remove('hidden');
+        btn.innerText = isExpanded ? 'Δείτε Λιγότερα ⬆' : `Δείτε Όλα (${items.length}) ⬇`;
+    } else {
+        btn.classList.add('hidden');
+    }
+}
+
+function toggleProfileCategory(cat) {
+    profileExpanded[cat] = !profileExpanded[cat]; // Αλλάζουμε την κατάσταση
+    updateProfileCategory(cat); // Ξαναζωγραφίζουμε το grid
 }
 
 function openLoggedItem(item) {
@@ -223,7 +264,6 @@ function openLoggedItem(item) {
     document.getElementById('loggedRating').innerText = item.rating ? item.rating.toFixed(1) : '-';
     document.getElementById('loggedReview').innerText = item.review ? `"${item.review}"` : 'Δεν άφησες κάποια κριτική για αυτό το έργο.';
 }
-
 // --- 6. TRENDING (ΑΡΧΙΚΗ ΣΕΛΙΔΑ) ---
 async function loadTrending() {
     const container = document.getElementById('trendingContainer');
@@ -266,9 +306,12 @@ async function loadTrending() {
             title.textContent = sectionTitles[key];
             container.appendChild(title);
 
+            // ΔΗΜΙΟΥΡΓΙΑ ΤΟΥ CAROUSEL DIV
             const sectionCarousel = document.createElement('div');
             sectionCarousel.className = 'rec-carousel';
             container.appendChild(sectionCarousel);
+
+            // Τοποθέτηση των καρτών ΜΕΣΑ στο Carousel
             renderGrid(sectionItems, sectionCarousel, 'search');
         }
     } catch (err) {
@@ -337,9 +380,12 @@ async function loadRecommendations() {
             title.textContent = sectionTitles[key];
             container.appendChild(title);
 
+            // ΔΗΜΙΟΥΡΓΙΑ ΤΟΥ CAROUSEL DIV
             const sectionCarousel = document.createElement('div');
             sectionCarousel.className = 'rec-carousel';
             container.appendChild(sectionCarousel);
+
+            // Τοποθέτηση των καρτών ΜΕΣΑ στο Carousel
             renderGrid(sectionItems, sectionCarousel, 'search');
         }
 

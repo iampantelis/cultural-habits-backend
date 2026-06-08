@@ -23,6 +23,7 @@ class MediaItem(SQLModel, table=True):
     media_type: str   
     title: str
     cover_image_url: Optional[str] = None
+    description: Optional[str] = None
     meta_data: Dict = Field(default={}, sa_column=Column(JSON))
     interactions: List["UserInteraction"] = Relationship(back_populates="media_item")
 

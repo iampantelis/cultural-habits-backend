@@ -2,173 +2,163 @@ import random
 import asyncio
 from sqlmodel import Session, select
 from .models import User, MediaItem, UserInteraction
-from .services import search_tmdb_movies, search_spotify_music, search_google_books, get_similar_tmdb_movies, get_trending_tmdb_movies
+from .services import search_tmdb_movies, search_spotify_music, search_google_books, get_similar_tmdb_movies, \
+    get_trending_tmdb_movies
 
-
-# --- SMART FALLBACK FUNCTIONS (Η Δραστική Λύση) ---
-
-async def smart_movie_to_book(title: str):
-    """Ψάχνει το ακριβές βιβλίο. Αν δεν υπάρχει, επιστρέφει κορυφαία Λογοτεχνία/Sci-Fi."""
-    # 1. Προσπάθεια εύρεσης ακριβούς μεταφοράς (π.χ. Dune, Harry Potter)
-    exact_match = await search_google_books(f'intitle:"{title}" subject:fiction')
-    if exact_match:
-        return exact_match
-
-    # 2. Αν η ταινία δεν βασίζεται σε βιβλίο, φέρνουμε βιβλία που ταιριάζουν στο vibe της ταινίας!
-    vibes = ["subject:science fiction", "subject:thriller", "subject:fantasy", "subject:mystery"]
-    return await search_google_books(random.choice(vibes))
-
-
-async def smart_music_to_book(artist_or_title: str):
-    """Ψάχνει βιογραφίες ή βιβλία για μουσική."""
-    res = await search_google_books(f'intitle:"{artist_or_title}" subject:biography OR music')
-    if res:
-        return res
-    return await search_google_books('subject:music biography')
-
-
-# ---------------------------------------------------
 
 async def generate_holistic_recommendations(current_user: User, session: Session):
+    # 1. Παίρνουμε όλες τις θετικές αξιολογήσεις του χρήστη
     statement = select(MediaItem).join(UserInteraction).where(
         (UserInteraction.user_id == current_user.id) &
         (UserInteraction.rating >= 4.0)
     )
-    all_favorite_items = session.exec(statement).all()
+    favorites = session.exec(statement).all()
 
-    if not all_favorite_items:
+    if not favorites:
         return await generate_trending_recommendations()
 
-    fav_movies = [item for item in all_favorite_items if item.media_type == "movie"]
-    fav_books = [item for item in all_favorite_items if item.media_type == "book"]
-    fav_music = [item for item in all_favorite_items if item.media_type == "music"]
-
-    sample_movies = random.sample(fav_movies, min(5, len(fav_movies)))
-    sample_books = random.sample(fav_books, min(5, len(fav_books)))
-    sample_music = random.sample(fav_music, min(5, len(fav_music)))
-
-    sample_items = sample_movies + sample_books + sample_music
-    all_titles = [item.title for item in sample_items]
+    # Διαλέγουμε μέχρι 8 αντικείμενα (για να έχουμε μεγάλη παραγωγή δεδομένων)
+    seed_items = random.sample(favorites, min(8, len(favorites)))
+    based_on_titles = [item.title for item in seed_items]
 
     tasks = []
 
-    for item in sample_items:
+    # 2. PURE DATA-DRIVEN QUERIES (Εξαγωγή Μεταδεδομένων από τη Βάση)
+    for item in seed_items:
         clean_title = item.title.split(":")[0].split("(")[0].strip()
-        if not clean_title: continue
 
         if item.media_type == "movie":
+            # ΤΑΙΝΙΕΣ -> Παρόμοιες Ταινίες
             tasks.append(get_similar_tmdb_movies(item.external_id))
-            tasks.append(smart_movie_to_book(clean_title))  # Χρήση του Smart Function!
-            tasks.append(search_spotify_music(f"{clean_title} soundtrack"))
+
+            # ΤΑΙΝΙΕΣ -> Στοχευμένη Μουσική (Μόνο το επίσημο Soundtrack)
+            tasks.append(search_spotify_music(f"{clean_title} original score"))
+
+            # ΤΑΙΝΙΕΣ -> Βιβλία (Αυστηρά λογοτεχνία που περιέχει τον τίτλο)
+            tasks.append(search_google_books(f'subject:fiction intitle:"{clean_title}"'))
 
         elif item.media_type == "book":
+            # ΕΞΑΓΩΓΗ ΣΥΓΓΡΑΦΕΑ: Διαβάζουμε το description ("Author: Τάδε")
+            author = clean_title
+            if item.description and "Author: " in item.description:
+                author = item.description.replace("Author: ", "").split(",")[0].strip()
+
+            # ΒΙΒΛΙΑ -> Βιβλία (Ψάχνουμε άλλα βιβλία του ΙΔΙΟΥ συγγραφέα!)
+            tasks.append(search_google_books(f'inauthor:"{author}" subject:fiction'))
+
+            # ΒΙΒΛΙΑ -> Ταινίες (Κινηματογραφικές μεταφορές)
             tasks.append(search_tmdb_movies(clean_title))
-            tasks.append(search_google_books(f'subject:"fiction" {clean_title}'))
-            tasks.append(search_spotify_music(f"{clean_title} score OR instrumental"))
+
+            # ΒΙΒΛΙΑ -> Μουσική
+            tasks.append(search_spotify_music(f"{clean_title} audiobook OR score"))
 
         elif item.media_type == "music":
-            tasks.append(search_tmdb_movies(clean_title))
-            tasks.append(search_spotify_music(clean_title))
-            tasks.append(smart_music_to_book(clean_title))  # Χρήση του Smart Function!
+            # ΕΞΑΓΩΓΗ ΚΑΛΛΙΤΕΧΝΗ: Διαβάζουμε το description ("Artist: Τάδε | Album: ...")
+            artist = clean_title
+            if item.description and "Artist: " in item.description:
+                artist = item.description.replace("Artist: ", "").split("|")[0].strip()
+
+            # ΜΟΥΣΙΚΗ -> Μουσική (Άλλα κομμάτια του ίδιου καλλιτέχνη)
+            tasks.append(search_spotify_music(f'artist:"{artist}"'))
+
+            # ΜΟΥΣΙΚΗ -> Ταινίες (Ταινίες/Ντοκιμαντέρ με το όνομά του)
+            tasks.append(search_tmdb_movies(artist))
+
+            # ΜΟΥΣΙΚΗ -> Βιβλία (Βιογραφίες αυτού του καλλιτέχνη)
+            tasks.append(search_google_books(f'subject:music OR subject:biography "{artist}"'))
+
+    # Εκτέλεση όλων των στοχευμένων ερωτημάτων
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     recommendations = []
-    if tasks:
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        for res in results:
-            if isinstance(res, Exception) or not res:
-                continue
+    for res in results:
+        if not isinstance(res, Exception) and res:
             recommendations.extend(res)
 
+    # 3. Αφαίρεση Διπλοτύπων & Εγγραφών που έχει ήδη
     user_items_stmt = select(MediaItem).join(UserInteraction).where(
         UserInteraction.user_id == current_user.id
     )
-    user_items = session.exec(user_items_stmt).all()
-    seen_ids = {item.external_id for item in user_items}
+    seen_ids = {item.external_id for item in session.exec(user_items_stmt).all()}
 
-    unique_recommendations = []
+    unique_recs = []
     for rec in recommendations:
         if rec["external_id"] not in seen_ids:
             seen_ids.add(rec["external_id"])
-            unique_recommendations.append(rec)
+            unique_recs.append(rec)
 
-    if not unique_recommendations:
-        return await generate_trending_recommendations()
+    # 4. Ισορροπία Κατηγοριών (Μαζεύουμε όσα περισσότερα niche/σχετικά βρήκε)
+    movies = [r for r in unique_recs if r["type"] == "movie"]
+    books = [r for r in unique_recs if r["type"] == "book"]
+    music = [r for r in unique_recs if r["type"] == "music"]
 
-    # Ισορροπημένο Τελικό Αποτέλεσμα (Έως 5 ταινίες, 5 βιβλία, 5 μουσικές)
-    final_movies = [r for r in unique_recommendations if r["type"] == "movie"]
-    final_books = [r for r in unique_recommendations if r["type"] == "book"]
-    final_music = [r for r in unique_recommendations if r["type"] == "music"]
+    # Παίρνουμε μέχρι 15 από το καθένα για τεράστιο carousel
+    final_movies = random.sample(movies, min(15, len(movies)))
+    final_books = random.sample(books, min(15, len(books)))
+    final_music = random.sample(music, min(15, len(music)))
 
-    balanced_recommendations = final_movies[:5] + final_books[:5] + final_music[:5]
-    random.shuffle(balanced_recommendations)
+    balanced = final_movies + final_books + final_music
+    random.shuffle(balanced)
 
-    display_based_on = all_titles if len(all_titles) <= 5 else random.sample(all_titles, 5) + ["...και άλλα"]
+    # Αν η βάση δεδομένων του χρήστη είναι πολύ μικρή και δεν έφερε αρκετά:
+    if len(balanced) < 10:
+        fallback = await generate_trending_recommendations()
+        balanced.extend(fallback["recommendations"])
 
     return {
-        "based_on": display_based_on,
-        "recommendations": balanced_recommendations
+        "based_on": based_on_titles,
+        "recommendations": balanced
     }
 
 
 async def generate_trending_recommendations():
-    # Λίστες με "Σίγουρα Χαρτιά" (Μεγάλοι καλλιτέχνες & Best-Selling Συγγραφείς)
-    all_music_artists = ["The Weeknd", "Coldplay", "Dua Lipa", "Hans Zimmer", "Arctic Monkeys", "Taylor Swift",
-                         "Daft Punk", "Queen", "Ed Sheeran", "Billie Eilish"]
-    all_book_authors = [
-        'inauthor:"Stephen King" subject:fiction',
-        'inauthor:"J.R.R. Tolkien" subject:fiction',
-        'inauthor:"George R.R. Martin" subject:fiction',
-        'inauthor:"Agatha Christie" subject:fiction',
-        'inauthor:"Neil Gaiman" subject:fiction',
-        'inauthor:"J.K. Rowling" subject:fiction',
-        'inauthor:"Frank Herbert" subject:fiction',
-        'inauthor:"Isaac Asimov" subject:fiction'
+    """
+    Το Cold Start τώρα ψάχνει Δυναμικά τις τρέχουσες τάσεις των APIs,
+    χωρίς ΚΑΜΙΑ hardcoded λίστα.
+    """
+    tasks = [
+        get_trending_tmdb_movies(),  # Tι βλέπει ο κόσμος ΣΗΜΕΡΑ
+        search_spotify_music("year:2024 genre:pop"),  # Top Pop του έτους
+        search_spotify_music("year:2024 genre:rock"),  # Top Rock του έτους
+        search_spotify_music("year:2024 genre:soundtrack"),
+        search_google_books("subject:fiction bestseller"),  # Βιβλία Best Sellers
+        search_google_books("subject:fantasy epic"),
+        search_google_books("subject:thriller mystery")
     ]
 
-    # Διαλέγουμε 4 ΔΙΑΦΟΡΕΤΙΚΟΥΣ καλλιτέχνες και 4 ΔΙΑΦΟΡΕΤΙΚΟΥΣ συγγραφείς για ΑΥΤΗ την ανανέωση
-    selected_artists = random.sample(all_music_artists, 4)
-    selected_authors = random.sample(all_book_authors, 4)
-
-    # Ετοιμάζουμε ταυτόχρονα αιτήματα για ΟΛΟΥΣ
-    tasks = [get_trending_tmdb_movies()]
-    for artist in selected_artists:
-        tasks.append(search_spotify_music(artist))
-    for author in selected_authors:
-        tasks.append(search_google_books(author))
-
-    # Εκτελούμε όλα τα αιτήματα παράλληλα!
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     trending_items = []
+    for res in results:
+        if not isinstance(res, Exception) and res:
+            trending_items.extend(res)
 
-    # 1. Ταινίες (Είναι το 1ο task στη λίστα, index 0)
-    movies_res = results[0]
-    if not isinstance(movies_res, Exception) and movies_res:
-        # Παίρνουμε 4 τυχαίες από τα σημερινά trends του TMDB
-        trending_items.extend(random.sample(movies_res, min(4, len(movies_res))))
+    # Καθαρισμός και Ισορροπία
+    seen_ids = set()
+    unique_recs = []
+    for rec in trending_items:
+        if rec["external_id"] not in seen_ids:
+            seen_ids.add(rec["external_id"])
+            unique_recs.append(rec)
 
-    # 2. Μουσική (Είναι τα tasks 1 έως 4)
-    for i in range(1, 5):
-        res = results[i]
-        if not isinstance(res, Exception) and res and len(res) > 0:
-            # Προσθέτουμε ΜΟΝΟ το Νο1 κομμάτι του κάθε καλλιτέχνη
-            trending_items.append(res[0])
+    movies = [r for r in unique_recs if r["type"] == "movie"]
+    books = [r for r in unique_recs if r["type"] == "book"]
+    music = [r for r in unique_recs if r["type"] == "music"]
 
-            # 3. Βιβλία (Είναι τα tasks 5 έως 8)
-    for i in range(5, 9):
-        res = results[i]
-        if not isinstance(res, Exception) and res and len(res) > 0:
-            # Προσθέτουμε ΜΟΝΟ το κορυφαίο βιβλίο του κάθε συγγραφέα
-            trending_items.append(res[0])
+    final_movies = random.sample(movies, min(12, len(movies)))
+    final_books = random.sample(books, min(12, len(books)))
+    final_music = random.sample(music, min(12, len(music)))
 
-            # Τα ανακατεύουμε για να εμφανιστούν όμορφα (ταινία, μουσική, βιβλίο, κλπ)
-    random.shuffle(trending_items)
+    balanced = final_movies + final_books + final_music
+    random.shuffle(balanced)
 
     return {
-        "message": "Ανακαλύψτε τις πιο καυτές ταινίες της εβδομάδας, κορυφαίους καλλιτέχνες και διαχρονικά βιβλία.",
-        "based_on": ["Trending & Classics"],
-        "recommendations": trending_items
+        "message": "Κορυφαίες κυκλοφορίες και παγκόσμια trends βασισμένα σε πραγματικά δεδομένα.",
+        "based_on": ["Global API Trends"],
+        "recommendations": balanced
     }
+
+
 async def get_smart_recommendations(current_user: User, session: Session):
     statement = select(UserInteraction).where(
         (UserInteraction.user_id == current_user.id) &
