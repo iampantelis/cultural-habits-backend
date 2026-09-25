@@ -39,7 +39,9 @@ nav {
 .search-bar select, .search-bar input {
     background: transparent; border: none; color: white; padding: 8px 12px; outline: none;
 }
-.search-bar button { background: var(--accent); border: none; padding: 8px 15px; cursor: pointer; }
+.search-bar input { flex: 1 1 170px; min-width: 0; width: 170px; }
+.search-bar select { flex-shrink: 0; }
+.search-bar button { background: var(--accent); border: none; padding: 8px 15px; cursor: pointer; color: #111; display: flex; align-items: center; flex-shrink: 0; }
 
 /* Auth Cards */
 .auth-card {

@@ -43,14 +43,13 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:8000",
-]
+# Demo: επιτρέπουμε οποιοδήποτε localhost/127.0.0.1 port (το JetBrains server τρέχει π.χ. στο 63342).
+# Για production: αντικατάστησε το regex με ρητή λίστα επιτρεπόμενων origins.
+allow_origin_regex = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
 # noinspection PyTypeChecker
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -140,22 +139,29 @@ def log_media(log_data: LogMedia, session: Session = Depends(get_session),
             media_type=log_data.media_type,
             title=log_data.title,
             cover_image_url=log_data.poster_url,
+            description=log_data.description,  # ← top-level: το διαβάζει ο recommender (Author/Artist)
             meta_data={
                 "year": log_data.year,
                 "description": log_data.description,
-                "genres": log_data.genres or [],  # ← ΝΕΟ
+                "genres": log_data.genres or [],
             }
         )
         session.add(media_item)
         session.commit()
         session.refresh(media_item)
     else:
-        # Αν το item υπάρχει ήδη, ενημέρωσε genres αν λείπουν
+        # Αν το item υπάρχει ήδη, συμπλήρωσε description/genres αν λείπουν
+        changed = False
+        if not media_item.description and log_data.description:
+            media_item.description = log_data.description
+            changed = True
         if media_item.meta_data and not media_item.meta_data.get("genres"):
             media_item.meta_data = {
                 **media_item.meta_data,
                 "genres": log_data.genres or [],
             }
+            changed = True
+        if changed:
             session.add(media_item)
             session.commit()
 

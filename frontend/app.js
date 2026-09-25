@@ -244,7 +244,7 @@ function updateProfileCategory(cat) {
     // Αν έχει πάνω από 5 εγγραφές, εμφανίζουμε το κουμπάκι!
     if (items.length > 5) {
         btn.classList.remove('hidden');
-        btn.innerText = isExpanded ? 'Δείτε Λιγότερα ⬆' : `Δείτε Όλα (${items.length}) ⬇`;
+        btn.innerText = isExpanded ? 'Δείτε Λιγότερα' : `Δείτε Όλα (${items.length})`;
     } else {
         btn.classList.add('hidden');
     }
@@ -269,7 +269,7 @@ async function loadTrending() {
     const container = document.getElementById('trendingContainer');
     if (!container) return;
 
-    container.innerHTML = '<p class="loading-msg">Φόρτωση δημοφιλών επιλογών... 🔥</p>';
+    container.innerHTML = '<p class="loading-msg">Φόρτωση δημοφιλών επιλογών...</p>';
 
     try {
         const res = await fetch(`${BASE_URL}/trending`);
@@ -282,7 +282,7 @@ async function loadTrending() {
         const headerDiv = document.createElement('div');
         headerDiv.className = 'rec-header';
         headerDiv.innerHTML = `
-            <h2>🔥 Δημοφιλή αυτή τη στιγμή</h2>
+            <h2>Δημοφιλή αυτή τη στιγμή</h2>
             <p style="color: var(--text-main);">${data.message || 'Ανακαλύψτε τι συζητάει ο κόσμος.'}</p>
         `;
         container.appendChild(headerDiv);
@@ -296,7 +296,7 @@ async function loadTrending() {
             grouped[key].push(item);
         });
 
-        const sectionTitles = { movie: '🎬 Ταινίες', music: '🎵 Μουσική', book: '📖 Βιβλία' };
+        const sectionTitles = { movie: 'Ταινίες', music: 'Μουσική', book: 'Βιβλία' };
 
         for (const [key, sectionItems] of Object.entries(grouped)) {
             if (sectionItems.length === 0) continue;
@@ -322,7 +322,7 @@ async function loadTrending() {
 // --- 7. ΠΡΟΤΑΣΕΙΣ (RECOMMENDATIONS) ---
 async function loadRecommendations() {
     const container = document.getElementById('recommendationsContainer');
-    container.innerHTML = '<p class="loading-msg">Αναλύουμε το γούστο σου... ⏳</p>';
+    container.innerHTML = '<p class="loading-msg">Αναλύουμε το γούστο σου...</p>';
 
     try {
         const res = await fetch(`${BASE_URL}/recommendations/me`, {
@@ -370,7 +370,7 @@ async function loadRecommendations() {
             grouped[key].push(item);
         });
 
-        const sectionTitles = { movie: '🎬 Ταινίες', music: '🎵 Μουσική', book: '📖 Βιβλία' };
+        const sectionTitles = { movie: 'Ταινίες', music: 'Μουσική', book: 'Βιβλία' };
 
         for (const [key, sectionItems] of Object.entries(grouped)) {
             if (sectionItems.length === 0) continue;
