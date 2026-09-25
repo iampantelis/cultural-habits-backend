@@ -43,8 +43,8 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Demo: επιτρέπουμε οποιοδήποτε localhost/127.0.0.1 port (το JetBrains server τρέχει π.χ. στο 63342).
-# Για production: αντικατάστησε το regex με ρητή λίστα επιτρεπόμενων origins.
+# Για το demo δεχόμαστε κάθε port σε localhost/127.0.0.1 (π.χ. ο server του PyCharm στο 63342).
+# Σε production εδώ θα έμπαινε συγκεκριμένη λίστα από origins.
 allow_origin_regex = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
 # noinspection PyTypeChecker
 app.add_middleware(
@@ -83,7 +83,7 @@ def get_my_interactions(session: Session = Depends(get_session), current_user: U
             "status": interaction.status,
             "review": interaction.review_text,
             "poster": media.cover_image_url,
-            "media_type": media.media_type  # <--- ΠΡΟΣΘΕΣΕ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ
+            "media_type": media.media_type  # το θέλει το προφίλ για να χωρίσει ανά κατηγορία
         })
 
     return my_list
@@ -91,18 +91,18 @@ def get_my_interactions(session: Session = Depends(get_session), current_user: U
 
 @app.post("/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
-    # 1. Αναζήτηση χρήστη στη βάση
+    # βρίσκουμε τον χρήστη
     statement = select(User).where(User.username == form_data.username)
     user = session.exec(statement).first()
 
-    # 2. Έλεγχος αν υπάρχει ο χρήστης και αν ο κωδικός είναι σωστός
+    # υπάρχει και ταιριάζει ο κωδικός με το hash;
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Bad credentials"
         )
 
-    # 3. Δημιουργία token
+    # όλα οκ, φτιάχνουμε το JWT
     token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -132,14 +132,14 @@ def log_media(log_data: LogMedia, session: Session = Depends(get_session),
     media_item = session.exec(statement).first()
 
     if not media_item:
-        # Αποθηκεύουμε genres αν τα έστειλε το frontend (από το services.py)
+        # νέο item: το κρατάμε μαζί με όσα genres έστειλε το frontend
         media_item = MediaItem(
             external_id=log_data.external_id,
             source=log_data.source,
             media_type=log_data.media_type,
             title=log_data.title,
             cover_image_url=log_data.poster_url,
-            description=log_data.description,  # ← top-level: το διαβάζει ο recommender (Author/Artist)
+            description=log_data.description,  # και σε δική του στήλη, από εδώ παίρνει ο recommender τον Author/Artist
             meta_data={
                 "year": log_data.year,
                 "description": log_data.description,
@@ -150,7 +150,7 @@ def log_media(log_data: LogMedia, session: Session = Depends(get_session),
         session.commit()
         session.refresh(media_item)
     else:
-        # Αν το item υπάρχει ήδη, συμπλήρωσε description/genres αν λείπουν
+        # υπάρχει ήδη: συμπληρώνουμε μόνο ό,τι λείπει (description/genres)
         changed = False
         if not media_item.description and log_data.description:
             media_item.description = log_data.description

@@ -1,10 +1,10 @@
-/* Letterboxd-inspired Theme */
+/* Θέμα εμπνευσμένο από το Letterboxd */
 :root {
     --bg-dark: #14181c;
     --bg-card: #2c3440;
     --text-main: #9ab;
     --text-light: #fff;
-    --accent: #FF8000; /* Πράσινο Letterboxd */
+    --accent: #FF8000; /* το πορτοκαλί του Letterboxd */
     --accent-hover: #E67300;;
 }
 
@@ -61,7 +61,7 @@ nav {
 .error { color: #ff5252; margin-top: 15px; font-weight: bold; font-size: 0.9rem; }
 .success { color: var(--accent); margin-top: 15px; font-weight: bold; font-size: 0.9rem; }
 
-/* Media Grid (Ταινίες, Βιβλία κλπ) */
+/* Grid αποτελεσμάτων */
 .media-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; margin-top: 20px;
 }
@@ -184,17 +184,17 @@ nav {
     border: 1px solid #444;
 }
 
-/* --- Οριζόντιο Carousel για Προτάσεις και Trending --- */
+/* --- Οριζόντιο carousel (προτάσεις, trending) --- */
 .rec-carousel {
     display: flex;
     gap: 20px;
-    overflow-x: auto; /* Ενεργοποιεί το οριζόντιο scroll */
+    overflow-x: auto; /* οριζόντιο scroll */
     padding: 20px 5px;
-    scroll-snap-type: x mandatory; /* Ομαλό "κούμπωμα" σαν κινητό */
+    scroll-snap-type: x mandatory; /* κουμπώνει σαν σε κινητό */
     -webkit-overflow-scrolling: touch;
 }
 
-/* Στυλιζάρισμα της μπάρας κύλισης για να είναι όμορφη */
+/* πιο διακριτική μπάρα κύλισης */
 .rec-carousel::-webkit-scrollbar {
     height: 8px;
 }
@@ -207,12 +207,12 @@ nav {
     border-radius: 10px;
 }
 
-/* Κάρτες μέσα στο Carousel */
+/* Κάρτες μέσα στο carousel */
 .rec-carousel .media-card {
-    min-width: 160px; /* Σταθερό πλάτος για να χωράνε πολλές */
+    min-width: 160px; /* σταθερό πλάτος */
     max-width: 160px;
-    flex: 0 0 auto; /* Δεν τις αφήνει να μικρύνουν */
-    scroll-snap-align: start; /* Κουμπώνει την κάθε κάρτα στην αρχή */
+    flex: 0 0 auto; /* να μη μικραίνουν */
+    scroll-snap-align: start; /* κάθε κάρτα κουμπώνει στην αρχή */
 }
 
 .rec-carousel .media-card img {

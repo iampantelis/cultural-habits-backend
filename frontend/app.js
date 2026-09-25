@@ -1,10 +1,10 @@
 const BASE_URL = 'http://127.0.0.1:8000';
 let currentSearchCache = [];
 let activeItem = null;
-let profileData = { movies: [], music: [], books: [] }; // <--- ΠΡΟΣΘΗΚΗ
+let profileData = { movies: [], music: [], books: [] }; // cache του προφίλ ανά κατηγορία
 let profileExpanded = { movies: false, music: false, books: false };
 
-// --- 1. ROUTER (Πλοήγηση Σελίδων) ---
+// --- 1. Router (πλοήγηση) ---
 function navigateTo(viewId) {
     document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
 
@@ -18,7 +18,7 @@ function navigateTo(viewId) {
 
     document.getElementById(`view-${viewId}`).classList.remove('hidden');
 
-    // Κλήσεις συναρτήσεων όταν μπαίνουμε στη σελίδα:
+    // φόρτωση δεδομένων ανάλογα με τη σελίδα
     if (viewId === 'home') loadTrending();
     if (viewId === 'profile') loadProfile();
     if (viewId === 'recommendations') loadRecommendations();
@@ -26,7 +26,7 @@ function navigateTo(viewId) {
 
 window.onload = () => navigateTo(localStorage.getItem('token') ? 'home' : 'login');
 
-// --- 2. AUTHENTICATION ---
+// --- 2. Σύνδεση / εγγραφή ---
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const errorDiv = document.getElementById('loginError');
@@ -98,7 +98,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     navigateTo('login');
 });
 
-// --- 3. ΑΝΑΖΗΤΗΣΗ ---
+// --- 3. Αναζήτηση ---
 document.getElementById('searchForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = document.getElementById('searchInput').value;
@@ -118,7 +118,7 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     }
 });
 
-// --- 4. DETAILS & RATING ---
+// --- 4. Λεπτομέρειες & αξιολόγηση ---
 function openDetails(id) {
     activeItem = currentSearchCache.find(i => i.external_id === id);
     if (!activeItem) return;
@@ -173,8 +173,7 @@ document.getElementById('saveInteractionBtn').addEventListener('click', async ()
     }
 });
 
-// --- 5. ΠΡΟΦΙΛ & ΣΤΑΤΙΣΤΙΚΑ ---
-// --- 5. ΠΡΟΦΙΛ & ΣΤΑΤΙΣΤΙΚΑ ---
+// --- 5. Προφίλ & στατιστικά ---
 async function loadProfile() {
     const token = localStorage.getItem('token');
 
@@ -192,7 +191,7 @@ async function loadProfile() {
     if (res.ok) {
         let data = await res.json();
 
-        // Αντιστροφή για να βλέπουμε πρώτα τις ΠΙΟ ΠΡΟΣΦΑΤΕΣ εγγραφές!
+        // πιο πρόσφατα πρώτα
         data.reverse();
 
         profileData.movies = data.filter(i =>
@@ -214,7 +213,7 @@ async function loadProfile() {
         document.getElementById('statMusic').innerText = profileData.music.length;
         document.getElementById('statBooks').innerText = profileData.books.length;
 
-        // Κλείνουμε όλες τις κατηγορίες (να δείχνουν μόνο 5) σε κάθε φόρτωση
+        // σε κάθε φόρτωση ξεκινάμε με 5 ανά κατηγορία
         profileExpanded = { movies: false, music: false, books: false };
 
         updateProfileCategory('movies');
@@ -236,12 +235,12 @@ function updateProfileCategory(cat) {
     }
 
     const isExpanded = profileExpanded[cat];
-    // Αν είναι expanded δείχνουμε όλα (items), αλλιώς κόβουμε τα πρώτα 5
+    // όλα αν είναι ανοιχτό, αλλιώς τα πρώτα 5
     const itemsToRender = isExpanded ? items : items.slice(0, 5);
 
     renderGrid(itemsToRender, grid, 'profile');
 
-    // Αν έχει πάνω από 5 εγγραφές, εμφανίζουμε το κουμπάκι!
+    // το κουμπί μόνο αν υπάρχουν πάνω από 5
     if (items.length > 5) {
         btn.classList.remove('hidden');
         btn.innerText = isExpanded ? 'Δείτε Λιγότερα' : `Δείτε Όλα (${items.length})`;
@@ -251,8 +250,8 @@ function updateProfileCategory(cat) {
 }
 
 function toggleProfileCategory(cat) {
-    profileExpanded[cat] = !profileExpanded[cat]; // Αλλάζουμε την κατάσταση
-    updateProfileCategory(cat); // Ξαναζωγραφίζουμε το grid
+    profileExpanded[cat] = !profileExpanded[cat]; // άνοιγμα/κλείσιμο
+    updateProfileCategory(cat); // και ξανά render
 }
 
 function openLoggedItem(item) {
@@ -264,7 +263,7 @@ function openLoggedItem(item) {
     document.getElementById('loggedRating').innerText = item.rating ? item.rating.toFixed(1) : '-';
     document.getElementById('loggedReview').innerText = item.review ? `"${item.review}"` : 'Δεν άφησες κάποια κριτική για αυτό το έργο.';
 }
-// --- 6. TRENDING (ΑΡΧΙΚΗ ΣΕΛΙΔΑ) ---
+// --- 6. Trending (αρχική) ---
 async function loadTrending() {
     const container = document.getElementById('trendingContainer');
     if (!container) return;
@@ -289,7 +288,7 @@ async function loadTrending() {
 
         if (items.length === 0) return;
 
-        // Ομαδοποίηση και εμφάνιση σε Carousel
+        // ένα carousel ανά μέσο
         const grouped = { movie: [], music: [], book: [] };
         items.forEach(item => {
             const key = item.type === 'movie' ? 'movie' : item.type === 'music' ? 'music' : 'book';
@@ -306,12 +305,12 @@ async function loadTrending() {
             title.textContent = sectionTitles[key];
             container.appendChild(title);
 
-            // ΔΗΜΙΟΥΡΓΙΑ ΤΟΥ CAROUSEL DIV
+            // container του carousel
             const sectionCarousel = document.createElement('div');
             sectionCarousel.className = 'rec-carousel';
             container.appendChild(sectionCarousel);
 
-            // Τοποθέτηση των καρτών ΜΕΣΑ στο Carousel
+            // οι κάρτες μπαίνουν μέσα
             renderGrid(sectionItems, sectionCarousel, 'search');
         }
     } catch (err) {
@@ -319,7 +318,7 @@ async function loadTrending() {
     }
 }
 
-// --- 7. ΠΡΟΤΑΣΕΙΣ (RECOMMENDATIONS) ---
+// --- 7. Προτάσεις ---
 async function loadRecommendations() {
     const container = document.getElementById('recommendationsContainer');
     container.innerHTML = '<p class="loading-msg">Αναλύουμε το γούστο σου...</p>';
@@ -363,7 +362,7 @@ async function loadRecommendations() {
             return;
         }
 
-        // Ομαδοποίηση και εμφάνιση σε Carousel
+        // ένα carousel ανά μέσο
         const grouped = { movie: [], music: [], book: [] };
         items.forEach(item => {
             const key = item.type === 'movie' ? 'movie' : item.type === 'music' ? 'music' : 'book';
@@ -380,12 +379,12 @@ async function loadRecommendations() {
             title.textContent = sectionTitles[key];
             container.appendChild(title);
 
-            // ΔΗΜΙΟΥΡΓΙΑ ΤΟΥ CAROUSEL DIV
+            // container του carousel
             const sectionCarousel = document.createElement('div');
             sectionCarousel.className = 'rec-carousel';
             container.appendChild(sectionCarousel);
 
-            // Τοποθέτηση των καρτών ΜΕΣΑ στο Carousel
+            // οι κάρτες μπαίνουν μέσα
             renderGrid(sectionItems, sectionCarousel, 'search');
         }
 
@@ -394,7 +393,7 @@ async function loadRecommendations() {
     }
 }
 
-// --- 8. ΒΟΗΘΗΤΙΚΗ ΣΥΝΑΡΤΗΣΗ RENDER (Κατασκευή Καρτών) ---
+// --- 8. Βοηθητικό: δημιουργία καρτών ---
 function renderGrid(items, container, mode) {
     container.innerHTML = '';
     if (items.length === 0) {
@@ -418,7 +417,7 @@ function renderGrid(items, container, mode) {
 
         if (mode === 'search') {
             card.onclick = () => {
-                currentSearchCache = items; // Βεβαιωνόμαστε ότι το cache έχει το σωστό αντικείμενο
+                currentSearchCache = items; // το κρατάμε για τη σελίδα λεπτομερειών
                 openDetails(item.external_id);
             };
         } else if (mode === 'profile') {

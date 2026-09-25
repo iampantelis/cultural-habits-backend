@@ -34,7 +34,7 @@ class UserInteraction(SQLModel, table=True):
     media_item_id: int = Field(foreign_key="media_items.id") 
     rating: float = Field(default=0.0)
     status: str = Field(default="completed")
-    review_text: Optional[str] = None #Προαιρετικό 
+    review_text: Optional[str] = None # προαιρετική κριτική
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     user: User = Relationship(back_populates="interactions")
     media_item: MediaItem = Relationship(back_populates="interactions")

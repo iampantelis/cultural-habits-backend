@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 
 load_dotenv()
 
-# --- TMDB (ΤΑΙΝΙΕΣ) ---
+# --- TMDB (ταινίες) ---
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
@@ -54,7 +54,7 @@ async def search_tmdb_movies(query: str) -> List[Dict[str, Any]]:
 
 
 async def get_similar_tmdb_movies(tmdb_id: str) -> List[Dict[str, Any]]:
-    """Φέρνει παρόμοιες ταινίες χρησιμοποιώντας το Recommendation API του TMDB"""
+    """Παρόμοιες ταινίες από το endpoint recommendations του TMDB."""
     url = f"{TMDB_BASE_URL}/movie/{tmdb_id}/recommendations"
     params = {
         "api_key": TMDB_API_KEY,
@@ -91,7 +91,7 @@ async def get_similar_tmdb_movies(tmdb_id: str) -> List[Dict[str, Any]]:
 
 
 async def get_trending_tmdb_movies() -> List[Dict[str, Any]]:
-    """Φέρνει τις πραγματικά δημοφιλείς ταινίες της εβδομάδας από το επίσημο API του TMDB"""
+    """Οι δημοφιλείς ταινίες της εβδομάδας (trending του TMDB)."""
     url = f"{TMDB_BASE_URL}/trending/movie/week"
     params = {
         "api_key": TMDB_API_KEY,
@@ -108,7 +108,7 @@ async def get_trending_tmdb_movies() -> List[Dict[str, Any]]:
     data = response.json()
     clean_results = []
 
-    # Παίρνουμε τις 15 πιο δημοφιλείς ταινίες της εβδομάδας
+    # κρατάμε τις 15 πρώτες
     for item in data.get("results", [])[:15]:
         poster_path = item.get("poster_path")
         image_url = f"{IMAGE_BASE_URL}{poster_path}" if poster_path else None
@@ -126,7 +126,7 @@ async def get_trending_tmdb_movies() -> List[Dict[str, Any]]:
 
     return clean_results
 
-# --- SPOTIFY (ΜΟΥΣΙΚΗ) ---
+# --- Spotify (μουσική) ---
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -191,8 +191,7 @@ async def search_spotify_music(query: str) -> List[Dict[str, Any]]:
     return clean_results
 
 
-# --- GOOGLE BOOKS (ΒΙΒΛΙΑ) ---
-# --- GOOGLE BOOKS (ΒΙΒΛΙΑ) ---
+# --- Google Books (βιβλία) ---
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
 GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
@@ -206,9 +205,9 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
 
     params = {
         "q": query,
-        "maxResults": 20,  # Ζητάμε 20 για να έχουμε περιθώριο να "κόψουμε" τα άσχετα
+        "maxResults": 20,  # ζητάμε 20 γιατί αρκετά κόβονται στα φίλτρα παρακάτω
         "printType": "books",
-        "langRestrict": "en"  # Προαιρετικά, βοηθάει να φέρνει πιο γνωστά εξώφυλλα
+        "langRestrict": "en"  # φέρνει συνήθως πιο γνωστές εκδόσεις με εξώφυλλο
     }
     if GOOGLE_BOOKS_API_KEY:
         params["key"] = GOOGLE_BOOKS_API_KEY
@@ -226,7 +225,7 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
         data = response.json()
         clean_results = []
 
-        # Λέξεις που "φωνάζουν" ότι το βιβλίο είναι εγχειρίδιο/άσχετο
+        # κατηγορίες που συνήθως σημαίνουν εγχειρίδιο ή σύγγραμμα
         bad_words = ["mathematics", "science", "computers", "technology", "education", "business", "medical", "law",
                      "study", "textbook", "manual"]
 
@@ -235,11 +234,11 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
             categories = [c.lower() for c in info.get("categories", [])]
             cat_str = " ".join(categories)
 
-            # 1. ΑΥΣΤΗΡΟ ΦΙΛΤΡΟ: Αν έχει άσχετη κατηγορία, το πετάμε!
+            # φίλτρο 1: άσχετη κατηγορία -> έξω
             if any(bad in cat_str for bad in bad_words):
                 continue
 
-            # 2. ΦΙΛΤΡΟ ΠΟΙΟΤΗΤΑΣ: Αν δεν έχει εξώφυλλο, το πετάμε (για να είναι ωραίο το UI)
+            # φίλτρο 2: χωρίς εξώφυλλο δεν το δείχνουμε
             image_links = info.get("imageLinks", {})
             thumbnail = image_links.get("thumbnail") or image_links.get("smallThumbnail")
             if not thumbnail:
@@ -253,12 +252,12 @@ async def search_google_books(query: str) -> List[Dict[str, Any]]:
                 "description": f"Author: {authors}",
                 "year": info.get("publishedDate", "")[:4] if info.get("publishedDate") else "",
                 "rating": info.get("averageRating", 0),
-                "thumbnail": thumbnail.replace("http:", "https:"),  # Ασφάλεια για το frontend
+                "thumbnail": thumbnail.replace("http:", "https:"),  # https για να μην έχουμε mixed content
                 "source": "google_books",
                 "type": "book"
             })
 
-            # Σταματάμε όταν μαζέψουμε 10 ΚΑΛΑ βιβλία από αυτό το συγκεκριμένο query
+            # 10 καλά αποτελέσματα αρκούν
             if len(clean_results) >= 10:
                 break
 

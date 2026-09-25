@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Session, create_engine
 from typing import Generator
 from sqlmodel import SQLModel, create_engine
-from app.models import * # Εισαγωγή όλων των μοντέλων σου
+from app.models import * # για να δει το create_all όλους τους πίνακες
 
 sqlite_url = "sqlite:///./app.db"
 engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
